@@ -1,0 +1,86 @@
+services:
+  back:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    image: back
+    container_name: electron-platform-back
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./back:/back
+      - ./db_migrator:/db_migrator
+    depends_on:
+      db-migrator:
+        condition: service_completed_successfully
+      file-storage:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    image: front
+    container_name: electron-platform-front
+    working_dir: /front
+    volumes:
+      - ./front:/front
+    ports:
+      - "8080:8080"
+
+  db:
+    image: postgres:17-alpine
+    container_name: electron-platform-db
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-migrator:
+    image: migrate/migrate:v4.17.1
+    container_name: electron-platform-db-migrator
+    volumes:
+      - ./db_migrator:/migrations
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - DB_HOST=db
+    entrypoint: sh
+    command: >
+      -c "cd /migrations && ./migrate-postgresql.sh main_db up"
+
+  file-storage:
+    image: minio/minio:latest
+    container_name: electron-platform-file-storage
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - file_storage_data:/data
+    environment:
+      MINIO_ROOT_USER: ${FILE_STORAGE_ROOT_USER_LOGIN}
+      MINIO_ROOT_PASSWORD: ${FILE_STORAGE_ROOT_USER_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+  file_storage_data:

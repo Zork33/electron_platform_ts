@@ -1,0 +1,46 @@
+// Quasar SCSS (& Sass) Variables
+// --------------------------------------------------
+// To customize the look and feel of this app, you can override
+// the Sass/SCSS variables found in Quasar's source Sass/SCSS files.
+
+// Check documentation for full list of Quasar variables
+
+// Your own variables (that are declared here) and Quasar's own
+// ones will be available out of the box in your .vue/.scss/.sass files
+
+// It's highly recommended to change the default colors
+// to match your app's branding.
+// Tip: Use the "Theme Builder" on Quasar's documentation website.
+
+$primary   : #1976D2;
+$secondary : #228dc3;
+$accent    : #9C27B0;
+
+// Нейтрали с лёгким сине-серым подтоном (лучше стыкуются с primary / secondary)
+$grey-1  : #f8f9fb;
+$grey-2  : #f0f3f7;
+$grey-3  : #e8ecf2;
+$grey-4  : #dce2ea;
+$grey-5  : #b8c2ce;
+$grey-6  : #8a96a5;
+$grey-7  : #657283;
+$grey-8  : #505f6f;
+$grey-9  : #3a4754;
+$grey-10 : #242f3a;
+$grey-11 : #f0f3f7;
+$grey-12 : #e8ecf2;
+$grey-13 : #b8c2ce;
+$grey-14 : #505f6f;
+$grey    : $grey-6;
+
+$separator-color : rgba(36, 47, 58, 0.11);
+$separator-dark-color : rgba(231, 234, 242, 0.1);
+
+// Тёмная тема: один «стек» оттенков (без чистого #000 и резких скачков)
+$dark      : #262d38;
+$dark-page : #1a1f27;
+
+$positive  : #1fa34a;
+$negative  : #c62828;
+$info      : #1fa3d4;
+$warning   : #e19a0a;

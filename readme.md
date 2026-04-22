@@ -1,0 +1,1 @@
+Hello! This is just an initial version — it includes only basic functionality, but it works :) The architecture is scalable for your personal or business ideas, structures, and processes. Documentation, vector DB, agents, MCP server, messenger integration, and much more are in progress. Follow the developments and feel free to reach out with any questions or ideas

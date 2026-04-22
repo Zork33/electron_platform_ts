@@ -1,0 +1,163 @@
+// app global css in SCSS form
+
+// Светлая тема: нейтрали в одной гамме с primary (см. quasar.variables.scss)
+:root {
+  --q-bg-page: #eef2f7;
+  --q-bg-card: #ffffff;
+  --q-bg-field: #e8ecf2;
+  --q-text-primary: #242f3a;
+  --q-text-secondary: #657283;
+  --q-text-menu: #3d4f61;
+  --q-border-subtle: #dce2ea;
+}
+
+body.body--dark {
+  --q-bg-page: #1a1f27;
+  --q-bg-card: #262d38;
+  --q-bg-field: #323a47;
+  --q-text-primary: #e7eaef;
+  --q-text-secondary: #97a3b5;
+  --q-text-menu: #c9d1dc;
+  --q-border-subtle: rgba(231, 234, 242, 0.12);
+}
+
+// Фон страницы через кастомную переменную
+.q-page {
+  background-color: var(--q-bg-page, #f5f5f5);
+
+  .body--dark & {
+    background-color: var(--q-bg-page, #1a1f27);
+  }
+}
+
+// Фон карточек через кастомную переменную
+.q-card {
+  background-color: var(--q-bg-card, #ffffff);
+
+  .body--dark & {
+    background-color: var(--q-bg-card, #262d38);
+  }
+}
+
+// Фон и цвет текста drawer (сайд-панель)
+.q-drawer {
+  background-color: var(--q-bg-card, #ffffff);
+  color: var(--q-text-menu, #212121);
+
+  .body--dark & {
+    background-color: var(--q-bg-card, #262d38);
+    color: var(--q-text-menu, #c9d1dc);
+  }
+}
+
+// Цвет текста
+body {
+  color: var(--q-text-primary, #242f3a);
+
+  &.body--dark {
+    color: var(--q-text-primary, #e0e0e0);
+  }
+}
+
+// Цвет текста в полях ввода
+.q-field__native,
+.q-field__input,
+.q-field__prefix,
+.q-field__suffix {
+  color: var(--q-text-primary, #242f3a) !important;
+
+  .body--dark & {
+    color: var(--q-text-primary, #e0e0e0) !important;
+  }
+}
+
+.q-field__label {
+  color: var(--q-text-secondary, #657283) !important;
+
+  .body--dark & {
+    color: var(--q-text-secondary, #9e9e9e) !important;
+  }
+}
+
+// Filled-поля: вместо чисто чёрной «пятёрки» — лёгкий оттенок primary
+body:not(.body--dark) .q-field--filled .q-field__control,
+body:not(.body--dark) .q-field--filled .q-field__control:before {
+  background: rgba(25, 118, 210, 0.06) !important;
+}
+
+body:not(.body--dark) .q-field--filled .q-field__control:before {
+  border-bottom-color: rgba(25, 118, 210, 0.32) !important;
+}
+
+body.body--dark .q-field--filled .q-field__control,
+body.body--dark .q-field--filled .q-field__control:before {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+body.body--dark .q-field--filled .q-field__control:before {
+  border-bottom-color: rgba(231, 234, 242, 0.28) !important;
+}
+
+// Шапка приложения: ссылка на бренд (класс задаётся в MainLayout)
+body:not(.body--dark) .toolbar-brand-link,
+body:not(.body--dark) .toolbar-brand-link:visited {
+  color: var(--q-text-menu) !important;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+body:not(.body--dark) .toolbar-brand-link:hover {
+  color: var(--q-primary) !important;
+}
+
+body.body--dark .toolbar-brand-link,
+body.body--dark .toolbar-brand-link:visited {
+  color: var(--q-text-menu) !important;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+body.body--dark .toolbar-brand-link:hover {
+  color: var(--q-primary) !important;
+}
+
+// Кнопки шапки списка
+.header-btn {
+  color: rgba(101, 114, 131, 0.88) !important;
+
+  .body--dark & {
+    color: rgba(158, 158, 158, 0.9) !important;
+  }
+  transition: color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    color: var(--q-primary, #1976d2) !important;
+    background-color: rgba(25, 118, 210, 0.08) !important;
+
+    .body--dark & {
+      background-color: rgba(25, 118, 210, 0.18) !important;
+    }
+  }
+
+  &--active {
+    color: var(--q-warning, #e19a0a) !important;
+
+    &:hover {
+      color: var(--q-warning, #e19a0a) !important;
+      background-color: rgba(225, 154, 10, 0.1) !important;
+    }
+  }
+
+  &--add:hover {
+    color: var(--q-positive, #1fa34a) !important;
+    background-color: rgba(31, 163, 74, 0.1) !important;
+  }
+}
+
+// Вторичный текст (подписи, caption)
+.text-caption,
+.text-grey,
+.text-grey-7,
+.text-grey-6 {
+  color: var(--q-text-secondary) !important;
+}
