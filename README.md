@@ -105,7 +105,7 @@ npm run test:coverage
 
 ## Current State
 
-This is a TypeScript migration with PostgreSQL and MinIO adapters wired in. Qdrant and the full Python lifecycle/toolkit hierarchy are still not ported.
+This is a TypeScript migration with PostgreSQL and MinIO adapters wired in. The main remaining differences versus the Python backend are the auth token format, Qdrant-based person search, external email/Telegram adapters, and the full Python lifecycle/toolkit hierarchy.
 
 Implemented:
 
@@ -119,15 +119,13 @@ Implemented:
 - MinIO-backed file blobs with persisted metadata.
 - Vitest test suite with coverage.
 
-Still ephemeral at runtime:
+Still different from the Python backend:
 
-- WebSocket connection state.
-
-Not ported as production infrastructure yet:
-
-- Qdrant.
-- Telegram/email adapters.
-- Full Python lifecycle/toolkit/storage architecture.
+- Access tokens are UUID-based in the TS auth service instead of the Python auth stack.
+- Person search is implemented with local trigram-style scoring instead of Qdrant.
+- Email and Telegram integrations are still embedded service logic, not external adapters.
+- The full Python lifecycle/toolkit/process hierarchy is not ported 1:1.
+- WebSocket connection state is runtime-only and does not survive process restart.
 
 ## Startup And Testing Steps
 

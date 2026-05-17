@@ -121,10 +121,12 @@ Coverage output is written to `back/coverage`.
 
 ## Remaining Gaps
 
-The TS rewrite still does not include the original production integrations:
+The TS rewrite still differs from the original backend in a few places:
 
-- Qdrant vector search.
-- Real email sender and Telegram bot adapters.
-- The full Python lifecycle/toolkit/storage hierarchy.
+- Access tokens are UUID-backed in the TS auth service rather than the Python auth stack.
+- Person search uses local trigram-style scoring instead of Qdrant.
+- Email and Telegram integrations are still embedded service logic, not external adapters.
+- The full Python lifecycle/toolkit/process hierarchy is not ported 1:1.
+- WebSocket connection state is runtime-only and does not survive a restart.
 
-The current backend is much closer to the original because state and file blobs now flow through external adapters, but some Python subsystems are still simplified or unported.
+The backend is otherwise much closer to the original because state and file blobs now flow through external adapters, while local development and tests can still use the JSON and memory fallbacks.
