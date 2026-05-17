@@ -121,6 +121,11 @@ export class ProfileService {
     return user ? this.serializeUser(user) : null
   }
 
+  findUserByEmail(authEmail: string) {
+    const user = this.deps.users.all().find((candidate) => candidate.auth_email === authEmail)
+    return user ? this.serializeUser(user) : null
+  }
+
   createUser(data: Partial<User>) {
     return this.serializeUser(this.deps.users.create(data))
   }

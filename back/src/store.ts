@@ -22,6 +22,7 @@ import { CrudCollection } from './record-collection.js'
 import { hoursFromNow } from './time.js'
 import { ObjectContainerService } from './object-container.js'
 import { ProfileService } from './profile-service.js'
+import { NoopTelegramNotifier, TelegramBotApiNotifier, type TelegramNotifier } from './telegram-notifier.js'
 import { WebSocketService } from './ws-service.js'
 
 const DEFAULT_SESSION_DAYS = 7
@@ -67,6 +68,15 @@ const createEmailSender = (): EmailSender => {
     authUser: process.env.EMAIL_SMTP_USER,
     authPass: process.env.EMAIL_SMTP_PASSWORD,
     fromEmail,
+  })
+}
+
+const createTelegramNotifier = (): TelegramNotifier => {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN ?? ''
+  if (!botToken) return new NoopTelegramNotifier()
+  return new TelegramBotApiNotifier({
+    botToken,
+    apiUrl: process.env.TELEGRAM_API_URL,
   })
 }
 
@@ -165,6 +175,7 @@ class AppStore {
   readonly sessionDays = DEFAULT_SESSION_DAYS
   readonly fileStorage = new FileStorageService({ onChange: () => this.persist(), blobStore: createBlobStore() })
   readonly emailSender = createEmailSender()
+  readonly telegramNotifier = createTelegramNotifier()
   readonly contactInfoApi = new CollectionCrudApiService(this.contactInfos)
   readonly phoneNumberApi = new CollectionCrudApiService(this.phoneNumbers)
   readonly emailApi = new CollectionCrudApiService(this.emails)
@@ -190,6 +201,7 @@ class AppStore {
     auth: this.auth,
     profile: this.profileService,
     emailSender: this.emailSender,
+    telegramNotifier: this.telegramNotifier,
     sessionDays: this.sessionDays,
   })
   readonly ws = new WebSocketService()

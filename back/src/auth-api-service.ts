@@ -1,11 +1,13 @@
 import type { AuthService } from './auth-service.js'
 import type { EmailSender } from './email-sender.js'
 import type { ProfileService } from './profile-service.js'
+import type { TelegramNotifier } from './telegram-notifier.js'
 
 export interface AuthApiServiceDeps {
   auth: AuthService
   profile: ProfileService
   emailSender: EmailSender
+  telegramNotifier: TelegramNotifier
   sessionDays: number
 }
 
@@ -15,6 +17,7 @@ export class AuthApiService {
   async startLogin(authEmail: string) {
     const token = this.deps.auth.createConfirmation('login', { auth_email: authEmail })
     await this.sendConfirmationEmail(token.token, token.auth_email, token.confirm_code)
+    await this.sendConfirmationTelegram(token.token, token.auth_email, token.confirm_code)
     return {
       confirmation_token: token.token,
       expires_at: token.expires_at,
@@ -29,6 +32,7 @@ export class AuthApiService {
   }) {
     const token = this.deps.auth.createConfirmation('register', payload)
     await this.sendConfirmationEmail(token.token, token.auth_email, token.confirm_code)
+    await this.sendConfirmationTelegram(token.token, token.auth_email, token.confirm_code)
     return {
       confirmation_token: token.token,
       expires_at: token.expires_at,
@@ -96,6 +100,19 @@ export class AuthApiService {
       this.deps.auth.markConfirmationSent(token, ok)
     } catch (error) {
       this.deps.auth.markConfirmationSent(token, false, error instanceof Error ? error.message : 'Failed to send confirmation email')
+    }
+  }
+
+  private async sendConfirmationTelegram(token: string, authEmail: string, confirmCode: string): Promise<void> {
+    const user = this.deps.profile.findUserByEmail(authEmail)
+    if (!user?.auth_telegram_id) return
+
+    const text = `Your confirmation code: ${confirmCode}`
+    try {
+      await this.deps.telegramNotifier.sendMessage(user.auth_telegram_id, text)
+      this.deps.auth.markConfirmationSent(token, true)
+    } catch (error) {
+      this.deps.auth.markConfirmationSent(token, false, error instanceof Error ? error.message : 'Failed to send confirmation telegram message')
     }
   }
 }

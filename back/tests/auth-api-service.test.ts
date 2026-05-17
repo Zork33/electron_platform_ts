@@ -27,6 +27,13 @@ describe('auth api service', () => {
   const emailSender = {
     sendHtmlEmail: async () => true,
   }
+  const telegramMessages: Array<{ chatId: string; text: string }> = []
+  const telegramNotifier = {
+    sendMessage: async (chatId: string, text: string) => {
+      telegramMessages.push({ chatId, text })
+      return true
+    },
+  }
   const auth = new AuthService({
     getUserById: (userId) => users.get(userId),
     patchUser: (userId, patch) => {
@@ -34,7 +41,7 @@ describe('auth api service', () => {
     },
   })
   const profile = new ProfileService({ persons, users, fileStorage })
-  const service = new AuthApiService({ auth, profile, emailSender, sessionDays: 7 })
+  const service = new AuthApiService({ auth, profile, emailSender, telegramNotifier, sessionDays: 7 })
 
   beforeEach(() => {
     persons.clear()
@@ -44,8 +51,18 @@ describe('auth api service', () => {
   })
 
   test('drives login and logout flow', async () => {
+    users.create({
+      person_id: null,
+      auth_email: 'demo@example.com',
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: '123456789',
+    })
     const start = await service.startLogin('demo@example.com')
     expect(start.confirmation_token).toBeTruthy()
+    expect(telegramMessages).toHaveLength(1)
     expect(service.finishLogin(start.confirmation_token, auth.confirmationTokens.get(start.confirmation_token)?.confirm_code ?? '')).toEqual(
       expect.objectContaining({ user_id: 1, access_token: expect.any(String) })
     )
