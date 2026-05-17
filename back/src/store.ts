@@ -18,6 +18,7 @@ import { AuthService } from './auth-service.js'
 import { EventService } from './event-service.js'
 import { FileStorageService, serializeStoredFileMetadata, type StoreFileInput } from './file-storage.js'
 import { CrudCollection } from './record-collection.js'
+import { ProfileService } from './profile-service.js'
 import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
 import { ObjectContainerService } from './object-container.js'
 const DEFAULT_SESSION_DAYS = 7
@@ -93,6 +94,7 @@ class AppStore {
   readonly fileStorage = new FileStorageService()
   readonly objectContainer = new ObjectContainerService(this.fileStorage)
   readonly eventService = new EventService({ events: this.events, fileStorage: this.fileStorage })
+  readonly profileService = new ProfileService({ persons: this.persons, users: this.users, fileStorage: this.fileStorage })
   readonly auth = new AuthService({
     getUserById: (userId) => this.users.get(userId),
     patchUser: (userId, patch) => {
@@ -215,31 +217,11 @@ class AppStore {
   }
 
   buildCurrentUser(user: User): import('./types.js').CurrentUserResponse {
-    const person = user.person_id ? this.persons.get(user.person_id) : null
-    return {
-      user_id: user.id,
-      auth_email: user.auth_email,
-      auth_telegram_id: user.auth_telegram_id,
-      has_access: user.has_access,
-      auth_session_expires_at: user.session_expires_at,
-      is_admin: user.is_admin,
-      person: person
-        ? {
-            person_id: person.id,
-            first_name: person.first_name,
-            last_name: person.last_name,
-            middle_name: person.middle_name,
-            birth_date: person.birth_date,
-          }
-        : null,
-    }
+    return this.profileService.getCurrentUser(user)
   }
 
   serializeUser(user: User): User & { avatar: ReturnType<typeof toFileMetadata> } {
-    return {
-      ...user,
-      avatar: user.avatar_id ? toFileMetadata(this.fileStorage.getFileById(user.avatar_id)) : null,
-    }
+    return this.profileService.serializeUser(user)
   }
 
   storeFile(input: StoreFileInput): StoredFileRecord {

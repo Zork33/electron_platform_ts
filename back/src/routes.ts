@@ -226,44 +226,34 @@ function createUserApiRouter(): Router {
     const orderDirection = String(req.query.order_direction ?? 'asc')
     const limit = toNumber(req.query.limit, 0)
     const offset = toNumber(req.query.offset, 0)
-    let persons = applyPersonFilters(store.persons.list(includeDeleted), req.query.filters)
-    persons = [...persons].sort((a, b) => {
-      if (orderBy !== 'id') return 0
-      return orderDirection === 'desc' ? b.id - a.id : a.id - b.id
-    })
-    if (limit > 0) {
-      persons = persons.slice(offset, offset + limit)
-    } else if (offset > 0) {
-      persons = persons.slice(offset)
-    }
-    res.json(persons)
+    res.json(store.profileService.listPersons(includeDeleted, req.query.filters, orderBy, orderDirection, limit, offset))
   })
 
   router.get('/person/:id', (req, res) => {
-    const person = store.persons.get(toNumber(req.params.id))
+    const person = store.profileService.getPerson(toNumber(req.params.id))
     if (!person) return notFound(res, 'Person not found')
     res.json(person)
   })
 
   router.post('/person', (req, res) => {
-    const created = store.persons.create(req.body ?? {})
+    const created = store.profileService.createPerson(req.body ?? {})
     res.json(created)
   })
 
   router.put('/person/:id', (req, res) => {
-    const updated = store.persons.patch(toNumber(req.params.id), req.body ?? {})
+    const updated = store.profileService.updatePerson(toNumber(req.params.id), req.body ?? {})
     if (!updated) return notFound(res, 'Person not found')
     res.json(updated)
   })
 
   router.delete('/person/:id', (req, res) => {
-    const deleted = store.persons.softDelete(toNumber(req.params.id))
+    const deleted = store.profileService.deletePerson(toNumber(req.params.id))
     if (!deleted) return notFound(res, 'Person not found')
     res.json(deleted)
   })
 
   router.post('/person/:id/restore', (req, res) => {
-    const restored = store.persons.restore(toNumber(req.params.id))
+    const restored = store.profileService.restorePerson(toNumber(req.params.id))
     if (!restored) return notFound(res, 'Person not found')
     res.json(restored)
   })
@@ -271,51 +261,40 @@ function createUserApiRouter(): Router {
   router.post('/person/vector_search', (req, res) => {
     const query = String(req.body?.query ?? '').trim().toLowerCase()
     const limit = Math.max(1, toNumber(req.body?.limit, 10))
-    const results = store.persons
-      .list(false)
-      .map((person) => {
-        const fullName = [person.last_name, person.first_name, person.middle_name].filter(Boolean).join(' ').toLowerCase()
-        const score = query ? (fullName.includes(query) ? 1 : 0) : 0
-        return { ...person, score }
-      })
-      .filter((person) => !query || person.score > 0)
-      .sort((a, b) => b.score - a.score || a.id - b.id)
-      .slice(0, limit)
-    res.json(results)
+    res.json(store.profileService.vectorSearch(query, limit))
   })
 
   router.get('/user', (req, res) => {
     const includeDeleted = parseIncludeDeleted(req.query.include_deleted)
-    res.json(store.users.list(includeDeleted).map((user) => store.serializeUser(user)))
+    res.json(store.profileService.listUsers(includeDeleted))
   })
 
   router.get('/user/:id', (req, res) => {
-    const user = store.users.get(toNumber(req.params.id))
+    const user = store.profileService.getUser(toNumber(req.params.id))
     if (!user) return notFound(res, 'User not found')
-    res.json(store.serializeUser(user))
+    res.json(user)
   })
 
   router.post('/user', (req, res) => {
-    const created = store.users.create(req.body ?? {})
-    res.json(store.serializeUser(created))
+    res.json(store.profileService.createUser(req.body ?? {}))
   })
 
   router.put('/user/:id', (req, res) => {
-    const updated = store.users.patch(toNumber(req.params.id), req.body ?? {})
+    const updated = store.profileService.updateUser(toNumber(req.params.id), req.body ?? {})
     if (!updated) return notFound(res, 'User not found')
-    res.json(store.serializeUser(updated))
+    res.json(updated)
   })
 
   router.delete('/user/:id', (req, res) => {
-    const deleted = store.users.softDelete(toNumber(req.params.id))
+    const deleted = store.profileService.deleteUser(toNumber(req.params.id))
     if (!deleted) return notFound(res, 'User not found')
-    res.json(store.serializeUser(deleted))
+    res.json(deleted)
   })
 
   router.post('/user/:id/restore', (req, res) => {
-    const restored = store.users.restore(toNumber(req.params.id))
+    const restored = store.profileService.restoreUser(toNumber(req.params.id))
     if (!restored) return notFound(res, 'User not found')
-    res.json(store.serializeUser(restored))
+    res.json(restored)
   })
 
   router.get('/event', (req, res) => {
@@ -375,54 +354,32 @@ function createUserApiRouter(): Router {
   })
 
   router.post('/user/:id/avatar/upload', upload.single('file'), (req, res) => {
-    const user = store.users.get(toNumber(req.params.id))
-    if (!user) return notFound(res, 'User not found')
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const stored = store.fileStorage.storeFile({
-      storagePartName: 'avatars',
-      path: `users/${user.id}/avatar/${file.originalname}`,
-      filename: file.originalname,
-      ext: file.originalname.includes('.') ? file.originalname.split('.').pop() ?? '' : '',
-      content: file.buffer,
-      contentType: file.mimetype,
-    })
-    store.users.patch(user.id, { avatar_id: stored.id })
-    res.json(store.serializeUser(store.users.get(user.id) ?? user))
+    const user = store.profileService.uploadAvatar(toNumber(req.params.id), file)
+    if (!user) return notFound(res, 'User not found')
+    res.json(user)
   })
 
   router.put('/user/:id/avatar/replace', upload.single('file'), (req, res) => {
-    const user = store.users.get(toNumber(req.params.id))
-    if (!user) return notFound(res, 'User not found')
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const stored = store.fileStorage.storeFile({
-      storagePartName: 'avatars',
-      path: `users/${user.id}/avatar/${file.originalname}`,
-      filename: file.originalname,
-      ext: file.originalname.includes('.') ? file.originalname.split('.').pop() ?? '' : '',
-      content: file.buffer,
-      contentType: file.mimetype,
-      replaceExisting: true,
-    })
-    store.users.patch(user.id, { avatar_id: stored.id })
-    res.json(store.serializeUser(store.users.get(user.id) ?? user))
+    const user = store.profileService.replaceAvatar(toNumber(req.params.id), file)
+    if (!user) return notFound(res, 'User not found')
+    res.json(user)
   })
 
   router.delete('/user/:id/avatar', (req, res) => {
-    const user = store.users.get(toNumber(req.params.id))
+    const user = store.profileService.clearAvatar(toNumber(req.params.id))
     if (!user) return notFound(res, 'User not found')
-    store.users.patch(user.id, { avatar_id: null })
-    res.json(store.serializeUser(store.users.get(user.id) ?? user))
+    res.json(user)
   })
 
   router.get('/user/:id/avatar/content', (req, res) => {
-    const user = store.users.get(toNumber(req.params.id))
-    if (!user) return notFound(res, 'User not found')
-    const file = user.avatar_id ? store.fileStorage.getFileById(user.avatar_id) : null
-    const content = file?.content ?? store.fileStorage.getDefaultImage()
-    res.setHeader('Content-Type', file?.content_type || 'image/png')
-    res.send(content)
+    const avatar = store.profileService.getAvatarContent(toNumber(req.params.id))
+    if (!avatar) return notFound(res, 'User not found')
+    res.setHeader('Content-Type', avatar.contentType)
+    res.send(avatar.content)
   })
 
   router.post('/file-storage/part/create', (req, res) => {
