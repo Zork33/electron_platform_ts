@@ -122,7 +122,7 @@ export class ProfileService {
   }
 
   findUserByEmail(authEmail: string) {
-    const user = this.deps.users.all().find((candidate) => candidate.auth_email === authEmail)
+    const user = this.deps.users.all().find((candidate) => candidate.auth_email === authEmail && candidate.deleted_at === null)
     return user ? this.serializeUser(user) : null
   }
 
@@ -149,7 +149,7 @@ export class ProfileService {
     authEmail: string,
     personData?: { first_name?: string | null; last_name?: string | null; middle_name?: string | null }
   ): User {
-    const existing = this.deps.users.all().find((user) => user.auth_email === authEmail)
+    const existing = this.deps.users.all().find((user) => user.auth_email === authEmail && user.deleted_at === null)
     if (existing) return existing
 
     const person = this.deps.persons.create({

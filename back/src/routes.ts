@@ -86,19 +86,23 @@ function createUserApiRouter(): Router {
   router.post('/auth/login-confirm-code-start', async (req, res) => {
     const authEmail = String(req.body?.auth_email ?? '').trim()
     if (!authEmail) return badRequest(res, 'auth_email is required')
-    res.json(await store.authApiService.startLogin(authEmail))
+    const result = await store.authApiService.startLogin(authEmail)
+    if (!result.ok) return badRequest(res, result.error)
+    res.json(result)
   })
 
   router.post('/auth/registration-confirm-code-start', async (req, res) => {
     const authEmail = String(req.body?.auth_email ?? '').trim()
     const firstName = String(req.body?.first_name ?? '').trim()
     if (!authEmail || !firstName) return badRequest(res, 'auth_email and first_name are required')
-    res.json(await store.authApiService.startRegistration({
+    const result = await store.authApiService.startRegistration({
       auth_email: authEmail,
       first_name: firstName,
       last_name: req.body?.last_name ? String(req.body.last_name) : null,
       middle_name: req.body?.middle_name ? String(req.body.middle_name) : null,
-    }))
+    })
+    if (!result.ok) return badRequest(res, result.error)
+    res.json(result)
   })
 
   router.post('/auth/login-confirm-code-finish', (req, res) => {

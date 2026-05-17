@@ -9,24 +9,49 @@ import { createJwt, verifyJwt } from './jwt.js'
 import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
 
 const DEFAULT_SESSION_DAYS = 7
-const CONFIRM_TTL_MINUTES = 10
-const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
 const DEFAULT_JWT_SECRET = 'electron_platform_ts_dev_secret'
+const DEFAULT_CONFIRM_CODE_LENGTH = 6
+const DEFAULT_CONFIRM_CODE_ALPHABET = '0123456789'
+const DEFAULT_CONFIRM_TTL_MINUTES = 10
+const DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS = 3
+const DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS = 5
 
 export interface AuthServiceDeps {
   getUserById: (userId: number) => User | null
   patchUser: (userId: number, patch: Partial<User>) => void
   onChange?: () => void
   jwtSecret?: string
+  sessionDays?: number
+  confirmCodeLength?: number
+  confirmCodeAlphabet?: string
+  confirmTtlMinutes?: number
+  confirmSendingMaxAttempts?: number
+  confirmVerificationMaxAttempts?: number
 }
 
 export class AuthService {
   readonly confirmationTokens = new Map<string, ConfirmationTokenRecord>()
   readonly accessTokens = new Map<string, AccessTokenRecord>()
   private readonly jwtSecret: string
+  private readonly sessionDays: number
+  private readonly confirmCodeLength: number
+  private readonly confirmCodeAlphabet: string
+  private readonly confirmTtlMinutes: number
+  private readonly confirmSendingMaxAttempts: number
+  private readonly confirmVerificationMaxAttempts: number
 
   constructor(private readonly deps: AuthServiceDeps) {
     this.jwtSecret = deps.jwtSecret ?? process.env.AUTH_JWT_SECRET ?? DEFAULT_JWT_SECRET
+    this.sessionDays = deps.sessionDays ?? Number(process.env.AUTH_SESSION_DAYS ?? DEFAULT_SESSION_DAYS)
+    this.confirmCodeLength = deps.confirmCodeLength ?? Number(process.env.CONFIRM_CODE_LENGTH ?? DEFAULT_CONFIRM_CODE_LENGTH)
+    this.confirmCodeAlphabet = deps.confirmCodeAlphabet ?? process.env.CONFIRM_CODE_ALPHABET ?? DEFAULT_CONFIRM_CODE_ALPHABET
+    this.confirmTtlMinutes = deps.confirmTtlMinutes ?? Number(process.env.CONFIRM_TTL_MINUTES ?? DEFAULT_CONFIRM_TTL_MINUTES)
+    this.confirmSendingMaxAttempts = deps.confirmSendingMaxAttempts ?? Number(
+      process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS
+    )
+    this.confirmVerificationMaxAttempts = deps.confirmVerificationMaxAttempts ?? Number(
+      process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS
+    )
   }
 
   reset(): void {
@@ -53,7 +78,7 @@ export class AuthService {
       last_name: payload.last_name ?? null,
       middle_name: payload.middle_name ?? null,
       confirm_code: this.generateConfirmCode(),
-      expires_at: minutesFromNow(CONFIRM_TTL_MINUTES),
+      expires_at: minutesFromNow(this.confirmTtlMinutes),
       is_sent: false,
       sending_attempts_count: 0,
       sending_error: null,
@@ -75,8 +100,9 @@ export class AuthService {
   }
 
   private generateConfirmCode(length = 6): string {
-    const digits = Array.from({ length }, () => crypto.randomInt(0, 10).toString())
-    return digits.join('')
+    const alphabet = this.confirmCodeAlphabet.length > 0 ? this.confirmCodeAlphabet : DEFAULT_CONFIRM_CODE_ALPHABET
+    const effectiveLength = Number.isFinite(length) && length > 0 ? length : this.confirmCodeLength
+    return Array.from({ length: effectiveLength }, () => alphabet[crypto.randomInt(0, alphabet.length)]).join('')
   }
 
   private appendConfirmationHistory(
@@ -127,6 +153,10 @@ export class AuthService {
       return { ok: false, error: 'Confirmation token is invalid or expired' }
     }
 
+    if (record.verification_attempts_count >= this.confirmVerificationMaxAttempts) {
+      return { ok: false, error: 'Verification attempts exceeded' }
+    }
+
     record.verification_attempts_count += 1
     if (record.confirm_code !== receivedCode.trim()) {
       record.is_verified = false
@@ -142,7 +172,7 @@ export class AuthService {
   }
 
   issueAccessToken(userId: number): AccessTokenRecord {
-    const expires_at = hoursFromNow(ACCESS_TTL_HOURS)
+    const expires_at = hoursFromNow(24 * this.sessionDays)
     const token = createJwt(
       {
         user_id: userId,
@@ -168,7 +198,8 @@ export class AuthService {
     if (!payload) return null
     const existing = this.accessTokens.get(oldToken)
     if (!existing) return null
-    if (new Date(existing.expires_at).getTime() <= Date.now() || new Date(payload.expires_at * 1000).getTime() <= Date.now()) {
+    const user = this.validateUserSession(this.deps.getUserById(existing.user_id))
+    if (!user || new Date(existing.expires_at).getTime() <= Date.now() || new Date(payload.expires_at * 1000).getTime() <= Date.now()) {
       this.accessTokens.delete(oldToken)
       this.deps.onChange?.()
       return null
@@ -208,7 +239,19 @@ export class AuthService {
       return null
     }
     const user = this.deps.getUserById(record.user_id)
+    return this.validateUserSession(user)
+  }
+
+  validateUserSession(user: User | null): User | null {
     if (!user || user.deleted_at !== null) return null
+    if (!user.has_access) return null
+    if (user.session_expires_at && new Date(user.session_expires_at).getTime() <= Date.now()) return null
     return user
+  }
+
+  hasConfirmationLimitReached(token: string): boolean {
+    const record = this.confirmationTokens.get(token)
+    if (!record) return true
+    return record.sending_attempts_count >= this.confirmSendingMaxAttempts
   }
 }

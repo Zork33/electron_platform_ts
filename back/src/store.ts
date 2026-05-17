@@ -27,6 +27,11 @@ import { WebSocketService } from './ws-service.js'
 
 const DEFAULT_SESSION_DAYS = 7
 const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
+const DEFAULT_CONFIRM_CODE_LENGTH = 6
+const DEFAULT_CONFIRM_CODE_ALPHABET = '0123456789'
+const DEFAULT_CONFIRM_TTL_MINUTES = 10
+const DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS = 3
+const DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS = 5
 
 export const toFileMetadata = (file: StoredFileRecord | null) => serializeStoredFileMetadata(file)
 
@@ -196,6 +201,12 @@ class AppStore {
       this.users.patch(userId, patch)
     },
     onChange: () => this.persist(),
+    sessionDays: Number(process.env.AUTH_SESSION_DAYS ?? DEFAULT_SESSION_DAYS),
+    confirmCodeLength: Number(process.env.CONFIRM_CODE_LENGTH ?? DEFAULT_CONFIRM_CODE_LENGTH),
+    confirmCodeAlphabet: process.env.CONFIRM_CODE_ALPHABET ?? DEFAULT_CONFIRM_CODE_ALPHABET,
+    confirmTtlMinutes: Number(process.env.CONFIRM_TTL_MINUTES ?? DEFAULT_CONFIRM_TTL_MINUTES),
+    confirmSendingMaxAttempts: Number(process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS),
+    confirmVerificationMaxAttempts: Number(process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS),
   })
   readonly authApiService = new AuthApiService({
     auth: this.auth,

@@ -61,6 +61,8 @@ describe('auth api service', () => {
       auth_telegram_id: '123456789',
     })
     const start = await service.startLogin('demo@example.com')
+    expect(start.ok).toBe(true)
+    if (!start.ok) throw new Error(start.error)
     expect(start.confirmation_token).toBeTruthy()
     expect(telegramMessages).toHaveLength(1)
     expect(service.finishLogin(start.confirmation_token, auth.confirmationTokens.get(start.confirmation_token)?.confirm_code ?? '')).toEqual(

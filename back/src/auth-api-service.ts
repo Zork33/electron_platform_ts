@@ -11,14 +11,21 @@ export interface AuthApiServiceDeps {
   sessionDays: number
 }
 
+type StartAuthResult =
+  | { ok: true; confirmation_token: string; expires_at: string }
+  | { ok: false; error: string }
+
 export class AuthApiService {
   constructor(private readonly deps: AuthApiServiceDeps) {}
 
-  async startLogin(authEmail: string) {
+  async startLogin(authEmail: string): Promise<StartAuthResult> {
+    const existingUser = this.deps.profile.findUserByEmail(authEmail)
+    if (!existingUser) return { ok: false, error: 'User not found' }
     const token = this.deps.auth.createConfirmation('login', { auth_email: authEmail })
     await this.sendConfirmationEmail(token.token, token.auth_email, token.confirm_code)
     await this.sendConfirmationTelegram(token.token, token.auth_email, token.confirm_code)
     return {
+      ok: true,
       confirmation_token: token.token,
       expires_at: token.expires_at,
     }
@@ -29,11 +36,14 @@ export class AuthApiService {
     first_name: string
     last_name?: string | null
     middle_name?: string | null
-  }) {
+  }): Promise<StartAuthResult> {
+    const existingUser = this.deps.profile.findUserByEmail(payload.auth_email)
+    if (existingUser) return { ok: false, error: 'User already exists' }
     const token = this.deps.auth.createConfirmation('register', payload)
     await this.sendConfirmationEmail(token.token, token.auth_email, token.confirm_code)
     await this.sendConfirmationTelegram(token.token, token.auth_email, token.confirm_code)
     return {
+      ok: true,
       confirmation_token: token.token,
       expires_at: token.expires_at,
     }
@@ -42,7 +52,8 @@ export class AuthApiService {
   finishLogin(confirmationToken: string, confirmCode: string) {
     const verification = this.deps.auth.verifyConfirmation(confirmationToken, confirmCode)
     if (!verification.ok) return verification
-    const user = this.deps.profile.ensureUserByEmail(verification.record.auth_email)
+    const user = this.deps.profile.findUserByEmail(verification.record.auth_email)
+    if (!user) return { ok: false, error: 'User not found' }
     const access = this.deps.auth.issueAccessToken(user.id)
     return {
       access_token: access.token,
@@ -56,6 +67,8 @@ export class AuthApiService {
   finishRegistration(confirmationToken: string, confirmCode: string) {
     const verification = this.deps.auth.verifyConfirmation(confirmationToken, confirmCode)
     if (!verification.ok) return verification
+    const existingUser = this.deps.profile.findUserByEmail(verification.record.auth_email)
+    if (existingUser) return { ok: false, error: 'User already exists' }
     const user = this.deps.profile.ensureUserByEmail(verification.record.auth_email, {
       first_name: verification.record.first_name,
       last_name: verification.record.last_name,
