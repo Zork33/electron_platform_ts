@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import express from 'express'
+import http from 'node:http'
 import WebSocket from 'ws'
+import { buildRouters } from '../src/routes.js'
 import { startTestServer } from './test-helpers.js'
 import { store } from '../src/store.js'
 
@@ -23,6 +26,29 @@ afterEach(async () => {
   await server?.close()
   server = null
 })
+
+async function startHealthRouterServer() {
+  const app = express()
+  app.use(buildRouters({
+    broadcast: () => {},
+    sendToUser: () => {},
+    sendToConnection: () => {},
+  }).health)
+  const httpServer = http.createServer(app)
+  await new Promise<void>((resolve) => {
+    httpServer.listen(0, '127.0.0.1', () => resolve())
+  })
+  const address = httpServer.address()
+  if (address === null || typeof address === 'string') throw new Error('bad address')
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    close: async () => {
+      await new Promise<void>((resolve) => {
+        httpServer.close(() => resolve())
+      })
+    },
+  }
+}
 
 async function request(path: string, init?: RequestInit) {
   if (!server) throw new Error('server is not started')
@@ -167,11 +193,45 @@ describe('http api', () => {
     const personRestore = await request(`/user-api/person/${personCreate.body.id}/restore`, { method: 'POST' })
     expect(personRestore.body.deleted_at).toBeNull()
 
+    const userCreate = await request('/user-api/user', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        person_id: null,
+        auth_email: 'route-user@example.com',
+        has_access: true,
+        is_admin: false,
+        session_expires_at: null,
+        avatar_id: null,
+        auth_telegram_id: null,
+      }),
+    })
+    expect(userCreate.body.auth_email).toBe('route-user@example.com')
+
+    const userUpdate = await request(`/user-api/user/${userCreate.body.id}`, {
+      method: 'PUT',
+      headers: jsonHeaders,
+      body: JSON.stringify({ is_admin: true }),
+    })
+    expect(userUpdate.body.is_admin).toBe(true)
+
+    const userDelete = await request(`/user-api/user/${userCreate.body.id}`, { method: 'DELETE' })
+    expect(userDelete.body.deleted_at).toBeTruthy()
+
+    const userRestore = await request(`/user-api/user/${userCreate.body.id}/restore`, { method: 'POST' })
+    expect(userRestore.body.deleted_at).toBeNull()
+
     const avatar = await request('/user-api/user/1/avatar/upload', {
       method: 'POST',
       body: formData({ file: new Blob([Buffer.from('avatar')], { type: 'image/png' }) }),
     })
     expect(avatar.body.avatar.id).toBeTruthy()
+
+    const avatarReplace = await request('/user-api/user/1/avatar/replace', {
+      method: 'PUT',
+      body: formData({ file: new Blob([Buffer.from('avatar-2')], { type: 'image/png' }) }),
+    })
+    expect(avatarReplace.body.avatar.id).toBeTruthy()
 
     if (!server) throw new Error('server is not started')
     const avatarContent = await fetch(`${server.baseUrl}/user-api/user/1/avatar/content`)
@@ -187,6 +247,9 @@ describe('http api', () => {
       body: JSON.stringify({ name: 'archive', is_public: false }),
     })
     expect(partCreate.body.part.name).toBe('archive')
+
+    const missingPartLookup = await request('/user-api/file-storage/part/missing')
+    expect(missingPartLookup.body.exists).toBe(false)
 
     const fileUpload = await request('/user-api/file-storage/file/upload', {
       method: 'POST',
@@ -230,8 +293,14 @@ describe('http api', () => {
     })
     expect(fileManagerReplace.body.metadata.size_bytes).toBe(14)
 
+    const fileManagerDownload = await fetch(`${server.baseUrl}/user-api/file-manager/${fileManagerUpload.body.metadata.id}/download`)
+    expect(Buffer.from(await fileManagerDownload.arrayBuffer()).toString()).toBe('managed file 2')
+
     const fileManagerUrl = await request(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}/url?expires_in=123`)
     expect(fileManagerUrl.body.url).toContain(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}/download`)
+
+    const missingFileDownload = await request('/user-api/file-manager/999999/download')
+    expect(missingFileDownload.response.status).toBe(404)
 
     const fileManagerDelete = await request(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}`, {
       method: 'DELETE',
@@ -268,12 +337,29 @@ describe('http api', () => {
     })
     expect(partUpdate.body.part.is_public).toBe(true)
 
+    const partDelete = await request('/user-api/file-storage/part/archive', {
+      method: 'DELETE',
+    })
+    expect(partDelete.body.part.name).toBe('archive')
+
+    const missingPartDelete = await request('/dev-api/file-storage/part/not-here', {
+      method: 'DELETE',
+    })
+    expect(missingPartDelete.response.status).toBe(404)
+
     const eventCreate = await request('/user-api/event', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify({ title: 'Launch event', description: 'demo' }),
     })
     expect(eventCreate.body.report_gallery).toEqual([])
+
+    const eventUpdate = await request(`/user-api/event/${eventCreate.body.id}`, {
+      method: 'PUT',
+      headers: jsonHeaders,
+      body: JSON.stringify({ description: 'updated' }),
+    })
+    expect(eventUpdate.body.description).toBe('updated')
 
     const galleryUpload = await request(`/user-api/event/${eventCreate.body.id}/report_gallery/upload`, {
       method: 'POST',
@@ -308,6 +394,11 @@ describe('http api', () => {
     })
     expect(galleryReorder.response.status).toBe(204)
 
+    const eventDelete = await request(`/user-api/event/${eventCreate.body.id}`, {
+      method: 'DELETE',
+    })
+    expect(eventDelete.body.deleted_at).toBeTruthy()
+
     const presignedUrl = await request('/user-api/file-storage/file/presigned-url?storage_part_name=archive&path=docs%2Freadme.txt&expires_in=60')
     expect(presignedUrl.body.presigned_url).toContain('/user-api/file-storage/file/download')
 
@@ -321,6 +412,11 @@ describe('http api', () => {
 
     const partHealth = await request('/dev-api/file-storage/part/health/check')
     expect(partHealth.body.healthy).toBe(true)
+
+    const healthServer = await startHealthRouterServer()
+    const directHealth = await fetch(`${healthServer.baseUrl}/health`)
+    expect((await directHealth.json()).service).toBe('ts-backend')
+    await healthServer.close()
   })
 
   test('websocket routes and live socket handler', async () => {

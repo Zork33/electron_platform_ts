@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'vitest'
-import { store } from '../src/store.js'
+import { store, toFileMetadata } from '../src/store.js'
 
 beforeEach(() => {
   store.reset()
@@ -16,6 +16,12 @@ describe('store', () => {
     const confirmation = store.createConfirmation('login', { auth_email: 'demo@example.com' })
     expect(store.consumeConfirmation(confirmation.token)?.confirm_code).toBe('123456')
     expect(store.consumeConfirmation(confirmation.token)?.token).toBe(confirmation.token)
+    const expiredConfirmation = store.createConfirmation('login', { auth_email: 'expired@example.com' })
+    store.confirmationTokens.set(expiredConfirmation.token, {
+      ...expiredConfirmation,
+      expires_at: '2000-01-01T00:00:00.000Z',
+    })
+    expect(store.consumeConfirmation(expiredConfirmation.token)).toBeNull()
 
     const user = store.ensureUserByEmail('new@example.com', { first_name: 'New' })
     const access = store.issueAccessToken(user.id)
@@ -28,6 +34,18 @@ describe('store', () => {
 
     expect(store.revokeAccessToken(refreshed?.token ?? '')).toBe(true)
     expect(store.getUserByAccessToken(refreshed?.token ?? '')).toBeNull()
+
+    const expired = store.issueAccessToken(user.id)
+    store.accessTokens.set(expired.token, { ...expired, expires_at: '2000-01-01T00:00:00.000Z' })
+    expect(store.refreshAccessToken(expired.token)).toBeNull()
+
+    const expiredLookup = store.issueAccessToken(user.id)
+    store.accessTokens.set(expiredLookup.token, { ...expiredLookup, expires_at: '2000-01-01T00:00:00.000Z' })
+    expect(store.getUserByAccessToken(expiredLookup.token)).toBeNull()
+
+    const deletedUserToken = store.issueAccessToken(user.id)
+    store.users.softDelete(user.id)
+    expect(store.getUserByAccessToken(deletedUserToken.token)).toBeNull()
   })
 
   test('file storage lifecycle and metadata helpers', () => {
@@ -45,6 +63,18 @@ describe('store', () => {
     expect(store.files.restore(file.id)?.deleted_at).toBeNull()
     expect(store.serializeUser(store.users.get(1)!).avatar).toBeNull()
     expect(store.buildCurrentUser(store.users.get(1)!).person?.first_name).toBe('Alexey')
+    const orphanUser = store.users.create({
+      person_id: null,
+      auth_email: 'orphan@example.com',
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    })
+    expect(store.buildCurrentUser(orphanUser).person).toBeNull()
+    expect(store.getDefaultImage().length).toBeGreaterThan(0)
+    expect(toFileMetadata(null)).toBeNull()
   })
 
   test('ws connection lifecycle', () => {
