@@ -261,7 +261,12 @@ export function useAuth() {
   }
 
   const logoutFromDevice = async () => {
-    // Очищаем всё состояние авторизации через store
+    try {
+      await api.post('/auth/logout')
+    } catch (error) {
+      console.warn('Logout request failed, clearing local auth state anyway:', error)
+    }
+
     authStore.clearAuth()
 
     Notify.create({
@@ -274,10 +279,14 @@ export function useAuth() {
   }
 
   const logoutFromAllDevices = async () => {
-    // TODO: Позже добавим запрос на backend для инвалидации токена
-    // Пока работает как обычный logout
+    try {
+      await api.post('/auth/logout-all')
+    } catch (error) {
+      console.warn('Logout-all request failed, clearing local auth state anyway:', error)
+    }
+
     await logoutFromDevice()
-    
+
     Notify.create({
       type: 'warning',
       message: 'Функция "выйти везде" будет доступна позже',
@@ -311,3 +320,4 @@ export function useAuth() {
     logoutFromAllDevices
   }
 }
+

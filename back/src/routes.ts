@@ -218,6 +218,22 @@ function createUserApiRouter(): Router {
     })
   })
 
+  router.post('/auth/logout', (req, res) => {
+    const token = authTokenFromRequest(req)
+    if (!token) return unauthorized(res, 'Authorization header is required')
+    store.revokeAccessToken(token)
+    res.json({ success: true })
+  })
+
+  router.post('/auth/logout-all', (req, res) => {
+    const token = authTokenFromRequest(req)
+    if (!token) return unauthorized(res, 'Authorization header is required')
+    const user = store.getUserByAccessToken(token)
+    if (!user) return unauthorized(res, 'Access token is invalid or expired')
+    const removed = store.revokeAllAccessTokensForUser(user.id)
+    res.json({ success: true, revoked_tokens: removed })
+  })
+
   router.get('/user/current-user', (req, res) => {
     const user = withCurrentUser(req)
     if (!user) return unauthorized(res, 'Access token is invalid or expired')

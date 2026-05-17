@@ -284,6 +284,25 @@ class AppStore {
     return this.issueAccessToken(existing.user_id)
   }
 
+  revokeAccessToken(token: string): boolean {
+    return this.accessTokens.delete(token)
+  }
+
+  revokeAllAccessTokensForUser(userId: number): number {
+    let removed = 0
+    for (const [token, record] of this.accessTokens.entries()) {
+      if (record.user_id === userId) {
+        this.accessTokens.delete(token)
+        removed += 1
+      }
+    }
+    const user = this.users.get(userId)
+    if (user) {
+      this.users.patch(userId, { session_expires_at: null })
+    }
+    return removed
+  }
+
   getUserByAccessToken(token: string): User | null {
     const record = this.accessTokens.get(token)
     if (!record) return null
