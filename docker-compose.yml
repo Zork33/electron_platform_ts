@@ -3,21 +3,78 @@ services:
     build:
       context: ./back
       dockerfile: Dockerfile
-    image: electron-platform-back-ts
-    container_name: electron-platform-back-ts
+    image: back
+    container_name: electron-platform-back
     ports:
       - "8000:8000"
     volumes:
-      - ./back:/app
+      - ./back:/back
+      - ./db_migrator:/db_migrator
+    depends_on:
+      db-migrator:
+        condition: service_completed_successfully
+      file-storage:
+        condition: service_healthy
 
   front:
     build:
       context: ./front
       dockerfile: Dockerfile
-    image: electron-platform-front
+    image: front
     container_name: electron-platform-front
     working_dir: /front
     volumes:
       - ./front:/front
     ports:
       - "8080:8080"
+
+  db:
+    image: postgres:17-alpine
+    container_name: electron-platform-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: main_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-migrator:
+    image: migrate/migrate:v4.17.1
+    container_name: electron-platform-db-migrator
+    volumes:
+      - ./db_migrator:/migrations
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: sh
+    command: >
+      -c "cd /migrations && ./migrate-postgresql.sh main_db up"
+
+  file-storage:
+    image: minio/minio:latest
+    container_name: electron-platform-file-storage
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - file_storage_data:/data
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: FilestoragePass123
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+  file_storage_data:

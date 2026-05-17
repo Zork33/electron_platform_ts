@@ -69,6 +69,8 @@ yarn dev
 docker compose up --build
 ```
 
+The compose file now mirrors the original service topology with PostgreSQL, migrator, and MinIO containers, while the TS backend itself still runs in-memory.
+
 Default ports:
 
 - backend: `8000`
