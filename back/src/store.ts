@@ -2,7 +2,6 @@ import crypto from 'node:crypto'
 import type {
   AccessTokenRecord,
   ConfirmationTokenRecord,
-  ConfirmationHistoryEntry,
   ContactInfo,
   Email,
   FilePart,
@@ -15,14 +14,12 @@ import type {
   WebLink,
   WsConnectionInfo,
 } from './types.js'
+import { AuthService } from './auth-service.js'
 import { FileStorageService, serializeStoredFileMetadata, type StoreFileInput } from './file-storage.js'
 import { CrudCollection } from './record-collection.js'
 import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
 import { ObjectContainerService } from './object-container.js'
-
-const DEFAULT_CONFIRM_CODE = '123456'
 const DEFAULT_SESSION_DAYS = 7
-const CONFIRM_TTL_MINUTES = 10
 const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
 
 export const toFileMetadata = (file: StoredFileRecord | null) => serializeStoredFileMetadata(file)
@@ -94,8 +91,12 @@ class AppStore {
 
   readonly fileStorage = new FileStorageService()
   readonly objectContainer = new ObjectContainerService(this.fileStorage)
-  readonly confirmationTokens = new Map<string, ConfirmationTokenRecord>()
-  readonly accessTokens = new Map<string, AccessTokenRecord>()
+  readonly auth = new AuthService({
+    getUserById: (userId) => this.users.get(userId),
+    patchUser: (userId, patch) => {
+      this.users.patch(userId, patch)
+    },
+  })
   readonly wsConnections = new Map<number, WsConnectionInfo>()
   readonly wsSockets = new Map<number, { send: (data: string) => void; close: () => void }>()
   private nextWsConnId = 1
@@ -116,8 +117,7 @@ class AppStore {
     this.webLinks.clear()
     this.events.clear()
     this.fileStorage.reset()
-    this.confirmationTokens.clear()
-    this.accessTokens.clear()
+    this.auth.reset()
     this.wsConnections.clear()
     this.wsSockets.clear()
     this.nextWsConnId = 1
@@ -147,151 +147,43 @@ class AppStore {
     last_name?: string | null
     middle_name?: string | null
   }): ConfirmationTokenRecord {
-    const token = crypto.randomUUID()
-    const record: ConfirmationTokenRecord = {
-      token,
-      kind,
-      auth_email: payload.auth_email,
-      first_name: payload.first_name ?? null,
-      last_name: payload.last_name ?? null,
-      middle_name: payload.middle_name ?? null,
-      confirm_code: DEFAULT_CONFIRM_CODE,
-      expires_at: minutesFromNow(CONFIRM_TTL_MINUTES),
-      is_sent: false,
-      sending_attempts_count: 0,
-      sending_error: null,
-      is_verified: false,
-      verification_attempts_count: 0,
-      verification_error: null,
-      history: [
-        {
-          action: 'create',
-          timestamp: nowIso(),
-          ok: true,
-          error_message: null,
-        },
-      ],
-    }
-    this.confirmationTokens.set(token, record)
-    return record
-  }
-
-  private appendConfirmationHistory(
-    record: ConfirmationTokenRecord,
-    action: ConfirmationHistoryEntry['action'],
-    ok: boolean,
-    error_message: string | null = null
-  ): ConfirmationTokenRecord {
-    record.history = [
-      ...record.history,
-      {
-        action,
-        timestamp: nowIso(),
-        ok,
-        error_message,
-      },
-    ]
-    return record
+    return this.auth.createConfirmation(kind, payload)
   }
 
   getConfirmation(token: string): ConfirmationTokenRecord | null {
-    const record = this.confirmationTokens.get(token)
-    if (!record) return null
-    if (new Date(record.expires_at).getTime() <= Date.now()) {
-      this.confirmationTokens.delete(token)
-      return null
-    }
-    return record
+    return this.auth.getConfirmation(token)
   }
 
   consumeConfirmation(token: string): ConfirmationTokenRecord | null {
-    return this.getConfirmation(token)
+    return this.auth.consumeConfirmation(token)
   }
 
   markConfirmationSent(token: string, ok: boolean, error_message: string | null = null): ConfirmationTokenRecord | null {
-    const record = this.getConfirmation(token)
-    if (!record) return null
-    record.is_sent = ok
-    record.sending_attempts_count += 1
-    record.sending_error = error_message
-    return this.appendConfirmationHistory(record, 'send', ok, error_message)
+    return this.auth.markConfirmationSent(token, ok, error_message)
   }
 
   verifyConfirmation(token: string, receivedCode: string): { ok: true; record: ConfirmationTokenRecord } | { ok: false; error: string } {
-    const record = this.getConfirmation(token)
-    if (!record) {
-      return { ok: false, error: 'Confirmation token is invalid or expired' }
-    }
-
-    record.verification_attempts_count += 1
-    if (record.confirm_code !== receivedCode.trim()) {
-      record.is_verified = false
-      record.verification_error = 'Invalid confirmation code'
-      this.appendConfirmationHistory(record, 'verify', false, record.verification_error)
-      return { ok: false, error: record.verification_error }
-    }
-
-    record.is_verified = true
-    record.verification_error = null
-    this.appendConfirmationHistory(record, 'verify', true, null)
-    return { ok: true, record }
+    return this.auth.verifyConfirmation(token, receivedCode)
   }
 
   issueAccessToken(userId: number): AccessTokenRecord {
-    const token = crypto.randomUUID()
-    const record: AccessTokenRecord = {
-      token,
-      user_id: userId,
-      expires_at: hoursFromNow(ACCESS_TTL_HOURS),
-    }
-    this.accessTokens.set(token, record)
-    const user = this.users.get(userId)
-    if (user) {
-      this.users.patch(userId, { session_expires_at: record.expires_at })
-    }
-    return record
+    return this.auth.issueAccessToken(userId)
   }
 
   refreshAccessToken(oldToken: string): AccessTokenRecord | null {
-    const existing = this.accessTokens.get(oldToken)
-    if (!existing) return null
-    if (new Date(existing.expires_at).getTime() <= Date.now()) {
-      this.accessTokens.delete(oldToken)
-      return null
-    }
-    this.accessTokens.delete(oldToken)
-    return this.issueAccessToken(existing.user_id)
+    return this.auth.refreshAccessToken(oldToken)
   }
 
   revokeAccessToken(token: string): boolean {
-    return this.accessTokens.delete(token)
+    return this.auth.revokeAccessToken(token)
   }
 
   revokeAllAccessTokensForUser(userId: number): number {
-    let removed = 0
-    for (const [token, record] of this.accessTokens.entries()) {
-      if (record.user_id === userId) {
-        this.accessTokens.delete(token)
-        removed += 1
-      }
-    }
-    const user = this.users.get(userId)
-    if (user) {
-      this.users.patch(userId, { session_expires_at: null })
-    }
-    return removed
+    return this.auth.revokeAllAccessTokensForUser(userId)
   }
 
   getUserByAccessToken(token: string): User | null {
-    const record = this.accessTokens.get(token)
-    if (!record) return null
-    if (new Date(record.expires_at).getTime() <= Date.now()) {
-      this.accessTokens.delete(token)
-      return null
-    }
-    const user = this.users.get(record.user_id)
-    if (!user || user.deleted_at !== null) return null
-    return user
+    return this.auth.getUserByAccessToken(token)
   }
 
   ensureUserByEmail(
@@ -460,6 +352,14 @@ class AppStore {
 
   getDefaultImage(): Buffer {
     return this.fileStorage.getDefaultImage()
+  }
+
+  get confirmationTokens() {
+    return this.auth.confirmationTokens
+  }
+
+  get accessTokens() {
+    return this.auth.accessTokens
   }
 }
 
