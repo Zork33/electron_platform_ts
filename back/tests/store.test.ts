@@ -68,7 +68,7 @@ describe('store', () => {
 
     expect(store.getFileByPath('public', 'docs/readme.txt')?.id).toBe(file.id)
     expect(store.deleteFileByPath('public', 'docs/readme.txt')?.deleted_at).not.toBeNull()
-    expect(store.files.restore(file.id)?.deleted_at).toBeNull()
+    expect(store.fileStorage.restoreFile(file.id)?.deleted_at).toBeNull()
     expect(store.serializeUser(store.users.get(1)!).avatar).toBeNull()
     expect(store.buildCurrentUser(store.users.get(1)!).person?.first_name).toBe('Alexey')
     const orphanUser = store.users.create({

@@ -1,4 +1,3 @@
-import crypto from 'node:crypto'
 import type {
   AccessTokenRecord,
   ConfirmationTokenRecord,
@@ -15,105 +14,16 @@ import type {
   WebLink,
   WsConnectionInfo,
 } from './types.js'
+import { FileStorageService, serializeStoredFileMetadata, type StoreFileInput } from './file-storage.js'
+import { CrudCollection } from './record-collection.js'
+import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
 
 const DEFAULT_CONFIRM_CODE = '123456'
 const DEFAULT_SESSION_DAYS = 7
 const CONFIRM_TTL_MINUTES = 10
 const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
-const DEFAULT_IMAGE =
-  Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2k8Q8AAAAASUVORK5CYII=',
-    'base64'
-  )
 
-export const nowIso = (): string => new Date().toISOString()
-export const hoursFromNow = (hours: number): string =>
-  new Date(Date.now() + hours * 60 * 60 * 1000).toISOString()
-export const minutesFromNow = (minutes: number): string =>
-  new Date(Date.now() + minutes * 60 * 1000).toISOString()
-
-export const toFileMetadata = (file: StoredFileRecord | null) =>
-  file
-    ? {
-        id: file.id,
-        file_storage_part_id: file.file_storage_part_id,
-        path: file.path,
-        filename: file.filename,
-        ext: file.ext,
-        size_bytes: file.size_bytes,
-        created_at: file.created_at,
-        updated_at: file.updated_at,
-        deleted_at: file.deleted_at,
-      }
-    : null
-
-class CrudCollection<T extends { id: number; created_at: string; updated_at: string; deleted_at: string | null }> {
-  private items = new Map<number, T>()
-  private nextId = 1
-
-  constructor(private readonly makeDefaults: () => Omit<T, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>) {}
-
-  list(includeDeleted = false): T[] {
-    return [...this.items.values()]
-      .filter((item) => includeDeleted || item.deleted_at === null)
-      .sort((a, b) => a.id - b.id)
-  }
-
-  all(): T[] {
-    return this.list(true)
-  }
-
-  get(id: number): T | null {
-    return this.items.get(id) ?? null
-  }
-
-  create(data: Partial<Omit<T, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>>): T {
-    const record = {
-      ...this.makeDefaults(),
-      ...data,
-      id: this.nextId++,
-      created_at: nowIso(),
-      updated_at: nowIso(),
-      deleted_at: null,
-    } as T
-    this.items.set(record.id, record)
-    return record
-  }
-
-  patch(id: number, data: Partial<T>): T | null {
-    const current = this.items.get(id)
-    if (!current) return null
-    const updated = {
-      ...current,
-      ...data,
-      id: current.id,
-      created_at: current.created_at,
-      updated_at: nowIso(),
-    } as T
-    this.items.set(id, updated)
-    return updated
-  }
-
-  softDelete(id: number): T | null {
-    return this.patch(id, { deleted_at: nowIso() } as Partial<T>)
-  }
-
-  restore(id: number): T | null {
-    return this.patch(id, { deleted_at: null } as Partial<T>)
-  }
-
-  remove(id: number): T | null {
-    const item = this.items.get(id) ?? null
-    if (!item) return null
-    this.items.delete(id)
-    return item
-  }
-
-  clear(): void {
-    this.items.clear()
-    this.nextId = 1
-  }
-}
+export const toFileMetadata = (file: StoredFileRecord | null) => serializeStoredFileMetadata(file)
 
 class AppStore {
   readonly persons = new CrudCollection<Person>(() => ({
@@ -180,20 +90,7 @@ class AppStore {
     report_gallery_ids: [],
   }))
 
-  readonly fileParts = new Map<string, FilePart>()
-  readonly files = new CrudCollection<StoredFileRecord>(() => ({
-    file_storage_part_id: 0,
-    storage_part_name: 'private',
-    path: '',
-    filename: '',
-    ext: '',
-    size_bytes: 0,
-    content_type: null,
-    last_modified: null,
-    etag: null,
-    content: Buffer.alloc(0),
-  }))
-
+  readonly fileStorage = new FileStorageService()
   readonly confirmationTokens = new Map<string, ConfirmationTokenRecord>()
   readonly accessTokens = new Map<string, AccessTokenRecord>()
   readonly wsConnections = new Map<number, WsConnectionInfo>()
@@ -215,16 +112,12 @@ class AppStore {
     this.tgAccs.clear()
     this.webLinks.clear()
     this.events.clear()
-    this.files.clear()
-    this.fileParts.clear()
+    this.fileStorage.reset()
     this.confirmationTokens.clear()
     this.accessTokens.clear()
     this.wsConnections.clear()
     this.wsSockets.clear()
     this.nextWsConnId = 1
-
-    this.fileParts.set('private', { name: 'private', is_public: false })
-    this.fileParts.set('public', { name: 'public', is_public: true })
 
     const person = this.persons.create({
       first_name: 'Alexey',
@@ -243,14 +136,6 @@ class AppStore {
       auth_telegram_id: null,
     })
     this.issueAccessToken(user.id)
-  }
-
-  private getOrCreatePart(name: string): FilePart {
-    const part = this.fileParts.get(name)
-    if (part) return part
-    const created = { name, is_public: false }
-    this.fileParts.set(name, created)
-    return created
   }
 
   createConfirmation(kind: 'login' | 'register', payload: {
@@ -456,86 +341,28 @@ class AppStore {
   serializeUser(user: User): User & { avatar: ReturnType<typeof toFileMetadata> } {
     return {
       ...user,
-      avatar: user.avatar_id ? toFileMetadata(this.files.get(user.avatar_id)) : null,
+      avatar: user.avatar_id ? toFileMetadata(this.fileStorage.getFileById(user.avatar_id)) : null,
     }
   }
 
-  storeFile(input: {
-    storagePartName: string
-    path: string
-    filename: string
-    ext: string
-    content: Buffer
-    contentType?: string | null
-    replaceExisting?: boolean
-  }): StoredFileRecord {
-    const part = this.getOrCreatePart(input.storagePartName)
-    const now = nowIso()
-    const existing = this.files
-      .all()
-      .find(
-        (file) =>
-          file.storage_part_name === input.storagePartName &&
-          file.path === input.path &&
-          file.deleted_at === null
-      )
-
-    if (existing && input.replaceExisting) {
-      const updated = this.files.patch(existing.id, {
-        file_storage_part_id: existing.file_storage_part_id || 1,
-        storage_part_name: input.storagePartName,
-        path: input.path,
-        filename: input.filename,
-        ext: input.ext,
-        size_bytes: input.content.length,
-        content_type: input.contentType ?? existing.content_type,
-        last_modified: now,
-        etag: crypto.createHash('sha1').update(input.content).digest('hex'),
-        content: input.content,
-      } as Partial<StoredFileRecord>)
-      return updated ?? existing
-    }
-
-    return this.files.create({
-      file_storage_part_id: part.name.length,
-      storage_part_name: input.storagePartName,
-      path: input.path,
-      filename: input.filename,
-      ext: input.ext,
-      size_bytes: input.content.length,
-      content_type: input.contentType ?? null,
-      last_modified: now,
-      etag: crypto.createHash('sha1').update(input.content).digest('hex'),
-      content: input.content,
-    })
+  storeFile(input: StoreFileInput): StoredFileRecord {
+    return this.fileStorage.storeFile(input)
   }
 
   getFileByPath(storagePartName: string, path: string): StoredFileRecord | null {
-    return (
-      this.files
-        .all()
-        .find((file) => file.storage_part_name === storagePartName && file.path === path && file.deleted_at === null) ?? null
-    )
+    return this.fileStorage.getFileByPath(storagePartName, path)
   }
 
   getFileById(id: number): StoredFileRecord | null {
-    return this.files.get(id)
+    return this.fileStorage.getFileById(id)
   }
 
   deleteFileByPath(storagePartName: string, path: string): StoredFileRecord | null {
-    const file = this.getFileByPath(storagePartName, path)
-    if (!file) return null
-    return this.files.softDelete(file.id)
+    return this.fileStorage.deleteFileByPath(storagePartName, path)
   }
 
   deleteFileById(id: number, hard = false): StoredFileRecord | null {
-    const file = this.files.get(id)
-    if (!file) return null
-    if (hard) {
-      this.files.remove(id)
-      return file
-    }
-    return this.files.softDelete(id)
+    return this.fileStorage.deleteFileById(id, hard)
   }
 
   listWsConnections(): WsConnectionInfo[] {
@@ -613,21 +440,23 @@ class AppStore {
   }
 
   getPartNames(): string[] {
-    return [...this.fileParts.keys()].sort()
+    return this.fileStorage.getPartNames()
   }
 
   getPart(name: string): FilePart | null {
-    return this.fileParts.get(name) ?? null
+    return this.fileStorage.getPart(name)
   }
 
   setPart(name: string, isPublic: boolean): FilePart {
-    const part = { name, is_public: isPublic }
-    this.fileParts.set(name, part)
-    return part
+    return this.fileStorage.setPart(name, isPublic)
+  }
+
+  deletePart(name: string): FilePart | null {
+    return this.fileStorage.deletePart(name)
   }
 
   getDefaultImage(): Buffer {
-    return DEFAULT_IMAGE
+    return this.fileStorage.getDefaultImage()
   }
 }
 

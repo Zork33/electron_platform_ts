@@ -68,8 +68,8 @@ const serializeEventResponse = (event: ReturnType<typeof store.events.get>) => {
   return {
     ...event,
     report_gallery: event.report_gallery_ids
-      .map((id) => store.getFileById(id))
-      .filter((file): file is NonNullable<ReturnType<typeof store.getFileById>> => Boolean(file))
+      .map((id) => store.fileStorage.getFileById(id))
+      .filter((file): file is NonNullable<ReturnType<typeof store.fileStorage.getFileById>> => Boolean(file))
       .map((file) => ({
         id: file.id,
         file_storage_part_id: file.file_storage_part_id,
@@ -382,7 +382,7 @@ function createUserApiRouter(): Router {
     if (!event) return notFound(res, 'Event not found')
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const stored = store.storeFile({
+    const stored = store.fileStorage.storeFile({
       storagePartName: 'event-gallery',
       path: `events/${event.id}/gallery/${file.originalname}`,
       filename: file.originalname,
@@ -417,11 +417,11 @@ function createUserApiRouter(): Router {
     const event = store.events.get(toNumber(req.params.eventId))
     if (!event) return notFound(res, 'Event not found')
     const storedFileId = toNumber(req.params.storedFileId)
-    const file = store.getFileById(storedFileId)
+    const file = store.fileStorage.getFileById(storedFileId)
     if (!file) return notFound(res, 'File not found')
     const filename = String(req.body?.filename ?? '').trim()
     if (!filename) return badRequest(res, 'filename is required')
-    const updated = store.files.patch(file.id, { filename })
+    const updated = store.fileStorage.renameFile(file.id, filename)
     if (!updated) return notFound(res, 'File not found')
     res.json({
       success: true,
@@ -444,7 +444,7 @@ function createUserApiRouter(): Router {
     if (!user) return notFound(res, 'User not found')
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const stored = store.storeFile({
+    const stored = store.fileStorage.storeFile({
       storagePartName: 'avatars',
       path: `users/${user.id}/avatar/${file.originalname}`,
       filename: file.originalname,
@@ -461,7 +461,7 @@ function createUserApiRouter(): Router {
     if (!user) return notFound(res, 'User not found')
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const stored = store.storeFile({
+    const stored = store.fileStorage.storeFile({
       storagePartName: 'avatars',
       path: `users/${user.id}/avatar/${file.originalname}`,
       filename: file.originalname,
@@ -484,8 +484,8 @@ function createUserApiRouter(): Router {
   router.get('/user/:id/avatar/content', (req, res) => {
     const user = store.users.get(toNumber(req.params.id))
     if (!user) return notFound(res, 'User not found')
-    const file = user.avatar_id ? store.getFileById(user.avatar_id) : null
-    const content = file?.content ?? store.getDefaultImage()
+    const file = user.avatar_id ? store.fileStorage.getFileById(user.avatar_id) : null
+    const content = file?.content ?? store.fileStorage.getDefaultImage()
     res.setHeader('Content-Type', file?.content_type || 'image/png')
     res.send(content)
   })
@@ -493,19 +493,19 @@ function createUserApiRouter(): Router {
   router.post('/file-storage/part/create', (req, res) => {
     const name = String(req.body?.name ?? '').trim()
     if (!name) return badRequest(res, 'name is required')
-    const part = store.setPart(name, Boolean(req.body?.is_public))
+    const part = store.fileStorage.setPart(name, Boolean(req.body?.is_public))
     res.json({ success: true, message: 'part created', part })
   })
 
   router.get('/file-storage/part/:partName', (req, res) => {
-    const part = store.getPart(req.params.partName)
+    const part = store.fileStorage.getPart(req.params.partName)
     res.json({ part_name: req.params.partName, exists: !!part })
   })
 
   router.delete('/file-storage/part/:partName', (req, res) => {
-    const exists = store.getPart(req.params.partName)
+    const exists = store.fileStorage.getPart(req.params.partName)
     if (!exists) return notFound(res, 'Part not found')
-    store.fileParts.delete(req.params.partName)
+    store.fileStorage.deletePart(req.params.partName)
     res.json({ success: true, message: 'part deleted', part: exists })
   })
 
@@ -517,7 +517,7 @@ function createUserApiRouter(): Router {
     if (!path) return badRequest(res, 'path is required')
     const filename = file.originalname
     const ext = filename.includes('.') ? filename.split('.').pop() ?? '' : ''
-    const stored = store.storeFile({
+    const stored = store.fileStorage.storeFile({
       storagePartName,
       path,
       filename,
@@ -536,7 +536,7 @@ function createUserApiRouter(): Router {
   router.get('/file-storage/file/download', (req, res) => {
     const storagePartName = String(req.query.storage_part_name ?? '')
     const path = String(req.query.path ?? '')
-    const file = store.getFileByPath(storagePartName, path)
+    const file = store.fileStorage.getFileByPath(storagePartName, path)
     if (!file) return notFound(res, 'File not found')
     res.setHeader('Content-Type', file.content_type || 'application/octet-stream')
     res.send(file.content)
@@ -545,7 +545,7 @@ function createUserApiRouter(): Router {
   router.delete('/file-storage/file/delete', (req, res) => {
     const storagePartName = String(req.query.storage_part_name ?? '')
     const path = String(req.query.path ?? '')
-    const file = store.deleteFileByPath(storagePartName, path)
+    const file = store.fileStorage.deleteFileByPath(storagePartName, path)
     if (!file) return notFound(res, 'File not found')
     res.json({
       success: true,
@@ -556,7 +556,7 @@ function createUserApiRouter(): Router {
   router.get('/file-storage/file/info', (req, res) => {
     const storagePartName = String(req.query.storage_part_name ?? '')
     const path = String(req.query.path ?? '')
-    const file = store.getFileByPath(storagePartName, path)
+    const file = store.fileStorage.getFileByPath(storagePartName, path)
     if (!file) return notFound(res, 'File not found')
     res.json({
       success: true,
@@ -575,7 +575,7 @@ function createUserApiRouter(): Router {
     const storagePartName = String(req.query.storage_part_name ?? '')
     const path = String(req.query.path ?? '')
     const expiresIn = toNumber(req.query.expires_in, 3600)
-    const file = store.getFileByPath(storagePartName, path)
+    const file = store.fileStorage.getFileByPath(storagePartName, path)
     if (!file) return notFound(res, 'File not found')
     res.json({
       success: true,
@@ -589,8 +589,8 @@ function createUserApiRouter(): Router {
     const pageCount = Math.max(1, toNumber(req.query.page_count, 20))
     const pageNumber = Math.max(1, toNumber(req.query.page_number, 1))
     const items = store
-      .files
-      .list(includeDeleted)
+      .fileStorage
+      .listFiles(includeDeleted)
       .slice((pageNumber - 1) * pageCount, pageNumber * pageCount)
       .map(({ content: _content, ...metadata }) => metadata)
     res.json({ success: true, items })
@@ -603,7 +603,7 @@ function createUserApiRouter(): Router {
     const path = String(req.body?.path ?? '')
     const filename = String(req.body?.filename ?? file.originalname)
     const ext = String(req.body?.ext ?? (filename.includes('.') ? filename.split('.').pop() ?? '' : ''))
-    const stored = store.storeFile({
+    const stored = store.fileStorage.storeFile({
       storagePartName,
       path,
       filename,
@@ -617,21 +617,21 @@ function createUserApiRouter(): Router {
   })
 
   router.get('/file-manager/:id', (req, res) => {
-    const file = store.getFileById(toNumber(req.params.id))
+    const file = store.fileStorage.getFileById(toNumber(req.params.id))
     if (!file) return notFound(res, 'File not found')
     const { content: _content, ...metadata } = file
     res.json({ success: true, metadata })
   })
 
   router.get('/file-manager/:id/download', (req, res) => {
-    const file = store.getFileById(toNumber(req.params.id))
+    const file = store.fileStorage.getFileById(toNumber(req.params.id))
     if (!file) return notFound(res, 'File not found')
     res.setHeader('Content-Type', file.content_type || 'application/octet-stream')
     res.send(file.content)
   })
 
   router.get('/file-manager/:id/url', (req, res) => {
-    const file = store.getFileById(toNumber(req.params.id))
+    const file = store.fileStorage.getFileById(toNumber(req.params.id))
     if (!file) return notFound(res, 'File not found')
     res.json({
       success: true,
@@ -641,18 +641,18 @@ function createUserApiRouter(): Router {
   })
 
   router.post('/file-manager/:id/restore', (req, res) => {
-    const file = store.files.restore(toNumber(req.params.id))
+    const file = store.fileStorage.restoreFile(toNumber(req.params.id))
     if (!file) return notFound(res, 'File not found')
     const { content: _content, ...metadata } = file
     res.json({ success: true, metadata })
   })
 
   router.put('/file-manager/:id/replace', upload.single('file'), (req, res) => {
-    const existing = store.getFileById(toNumber(req.params.id))
+    const existing = store.fileStorage.getFileById(toNumber(req.params.id))
     if (!existing) return notFound(res, 'File not found')
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const stored = store.storeFile({
+    const stored = store.fileStorage.storeFile({
       storagePartName: existing.storage_part_name,
       path: existing.path,
       filename: file.originalname,
@@ -667,7 +667,7 @@ function createUserApiRouter(): Router {
 
   router.delete('/file-manager/:id', (req, res) => {
     const hard = String(req.query.hard ?? 'false') === 'true'
-    const file = store.deleteFileById(toNumber(req.params.id), hard)
+    const file = store.fileStorage.deleteFileById(toNumber(req.params.id), hard)
     if (!file) return notFound(res, 'File not found')
     const { content: _content, ...metadata } = file
     res.json({ success: true, metadata })
@@ -684,15 +684,15 @@ function createDevApiRouter(wsApi: {
   const router = createRouter()
 
   router.get('/file-storage/part/', (_req, res) => {
-    res.json({ parts: store.getPartNames(), count: store.getPartNames().length })
+    res.json({ parts: store.fileStorage.getPartNames(), count: store.fileStorage.getPartNames().length })
   })
 
   router.patch('/file-storage/part/:partName/public', (req, res) => {
     const partName = req.params.partName
-    const exists = store.getPart(partName)
+    const exists = store.fileStorage.getPart(partName)
     if (!exists) return notFound(res, 'Part not found')
     const isPublic = Boolean(req.body?.is_public)
-    const part = store.setPart(partName, isPublic)
+    const part = store.fileStorage.setPart(partName, isPublic)
     res.json({ success: true, message: 'part updated', part })
   })
 
@@ -701,10 +701,10 @@ function createDevApiRouter(wsApi: {
   })
 
   router.get('/object-container/storage-info', (_req, res) => {
-    const objectList = store.getPartNames().map((category) => {
+    const objectList = store.fileStorage.getPartNames().map((category) => {
       const objects = store
-        .files
-        .list(true)
+        .fileStorage
+        .listFiles(true)
         .filter((file) => file.storage_part_name === category)
         .map((file) => ({
           id: String(file.id),
