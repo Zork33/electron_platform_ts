@@ -16,7 +16,7 @@ export interface CrudActions<T, TCreate, TUpdate> {
   createItem: (data: TCreate) => Promise<T>
   updateItem: (id: number, data: TUpdate) => Promise<T>
   deleteItem: (id: number) => Promise<void>
-  // restoreItem: (id: number) => Promise<T> // закомментировано - нет на бэкенде
+  restoreItem: (id: number) => Promise<T>
   toggleShowDeleted: () => Promise<void>
 }
 

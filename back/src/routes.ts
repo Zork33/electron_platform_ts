@@ -90,6 +90,7 @@ function createCrudRouter<T extends BaseRecord>(collection: {
   create: (data: Partial<T>) => T
   patch: (id: number, data: Partial<T>) => T | null
   softDelete: (id: number) => T | null
+  restore: (id: number) => T | null
 }): Router {
   const router = createRouter()
 
@@ -116,6 +117,12 @@ function createCrudRouter<T extends BaseRecord>(collection: {
 
   router.delete('/:id', (req, res) => {
     const item = collection.softDelete(toNumber(req.params.id))
+    if (!item) return notFound(res, 'Entity not found')
+    res.json(ok(item))
+  })
+
+  router.post('/:id/restore', (req, res) => {
+    const item = collection.restore(toNumber(req.params.id))
     if (!item) return notFound(res, 'Entity not found')
     res.json(ok(item))
   })
@@ -265,6 +272,12 @@ function createUserApiRouter(): Router {
     res.json(deleted)
   })
 
+  router.post('/person/:id/restore', (req, res) => {
+    const restored = store.persons.restore(toNumber(req.params.id))
+    if (!restored) return notFound(res, 'Person not found')
+    res.json(restored)
+  })
+
   router.post('/person/vector_search', (req, res) => {
     const query = String(req.body?.query ?? '').trim().toLowerCase()
     const limit = Math.max(1, toNumber(req.body?.limit, 10))
@@ -307,6 +320,12 @@ function createUserApiRouter(): Router {
     const deleted = store.users.softDelete(toNumber(req.params.id))
     if (!deleted) return notFound(res, 'User not found')
     res.json(store.serializeUser(deleted))
+  })
+
+  router.post('/user/:id/restore', (req, res) => {
+    const restored = store.users.restore(toNumber(req.params.id))
+    if (!restored) return notFound(res, 'User not found')
+    res.json(store.serializeUser(restored))
   })
 
   router.get('/event', (req, res) => {

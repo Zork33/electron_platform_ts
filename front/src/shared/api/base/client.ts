@@ -131,4 +131,11 @@ export class BaseCrudClient<
   async deleteById(id: number): Promise<TEntity> {
     return this.deleteRequest<TEntity>(`${this.baseUrl}/${id}`)
   }
+
+  /**
+   * Восстановить soft-deleted запись
+   */
+  async restore(id: number): Promise<TEntity> {
+    return this.post<TEntity>(`${this.baseUrl}/${id}/restore`)
+  }
 }
