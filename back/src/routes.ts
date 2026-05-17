@@ -17,6 +17,30 @@ const parseIncludeDeleted = (value: unknown): boolean => {
   return false
 }
 
+type PersonFilter =
+  | { field: 'first_name' | 'last_name'; operator: 'ILIKE'; value: string }
+  | 'OR'
+
+const normalizeLike = (value: string) => value.replace(/%/g, '').trim().toLowerCase()
+
+const applyPersonFilters = (persons: ReturnType<typeof store.persons.list>, rawFilters: unknown) => {
+  if (typeof rawFilters !== 'string' || !rawFilters.trim()) return persons
+  try {
+    const parsed = JSON.parse(rawFilters) as PersonFilter[]
+    const normalized = parsed.filter((item): item is Exclude<PersonFilter, 'OR'> => item !== 'OR')
+    if (!normalized.length) return persons
+    return persons.filter((person) =>
+      normalized.some((filter) => {
+        const needle = normalizeLike(filter.value)
+        const haystack = String(person[filter.field] ?? '').toLowerCase()
+        return filter.operator === 'ILIKE' && haystack.includes(needle)
+      })
+    )
+  } catch {
+    return persons
+  }
+}
+
 const ok = <T>(payload: T) => payload
 
 const notFound = (res: Response, message: string) => res.status(404).json({ detail: { error_message: message } })
@@ -193,12 +217,69 @@ function createUserApiRouter(): Router {
     res.json(store.buildCurrentUser(user))
   })
 
-  router.use('/person', createCrudRouter(store.persons))
   router.use('/contact-info', createCrudRouter(store.contactInfos))
   router.use('/phone-number', createCrudRouter(store.phoneNumbers))
   router.use('/email', createCrudRouter(store.emails))
   router.use('/tg-acc', createCrudRouter(store.tgAccs))
   router.use('/web-link', createCrudRouter(store.webLinks))
+
+  router.get('/person', (req, res) => {
+    const includeDeleted = parseIncludeDeleted(req.query.include_deleted)
+    const orderBy = String(req.query.order_by ?? 'id')
+    const orderDirection = String(req.query.order_direction ?? 'asc')
+    const limit = toNumber(req.query.limit, 0)
+    const offset = toNumber(req.query.offset, 0)
+    let persons = applyPersonFilters(store.persons.list(includeDeleted), req.query.filters)
+    persons = [...persons].sort((a, b) => {
+      if (orderBy !== 'id') return 0
+      return orderDirection === 'desc' ? b.id - a.id : a.id - b.id
+    })
+    if (limit > 0) {
+      persons = persons.slice(offset, offset + limit)
+    } else if (offset > 0) {
+      persons = persons.slice(offset)
+    }
+    res.json(persons)
+  })
+
+  router.get('/person/:id', (req, res) => {
+    const person = store.persons.get(toNumber(req.params.id))
+    if (!person) return notFound(res, 'Person not found')
+    res.json(person)
+  })
+
+  router.post('/person', (req, res) => {
+    const created = store.persons.create(req.body ?? {})
+    res.json(created)
+  })
+
+  router.put('/person/:id', (req, res) => {
+    const updated = store.persons.patch(toNumber(req.params.id), req.body ?? {})
+    if (!updated) return notFound(res, 'Person not found')
+    res.json(updated)
+  })
+
+  router.delete('/person/:id', (req, res) => {
+    const deleted = store.persons.softDelete(toNumber(req.params.id))
+    if (!deleted) return notFound(res, 'Person not found')
+    res.json(deleted)
+  })
+
+  router.post('/person/vector_search', (req, res) => {
+    const query = String(req.body?.query ?? '').trim().toLowerCase()
+    const limit = Math.max(1, toNumber(req.body?.limit, 10))
+    const results = store.persons
+      .list(false)
+      .map((person) => {
+        const fullName = [person.last_name, person.first_name, person.middle_name].filter(Boolean).join(' ').toLowerCase()
+        const score = query ? (fullName.includes(query) ? 1 : 0) : 0
+        return { ...person, score }
+      })
+      .filter((person) => !query || person.score > 0)
+      .sort((a, b) => b.score - a.score || a.id - b.id)
+      .slice(0, limit)
+    res.json(results)
+  })
 
   router.get('/user', (req, res) => {
     const includeDeleted = parseIncludeDeleted(req.query.include_deleted)
