@@ -1,5 +1,6 @@
 import { dirname, resolve } from 'node:path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { Pool, type PoolConfig } from 'pg'
 import type {
   AccessTokenRecord,
   ConfirmationTokenRecord,
@@ -16,7 +17,7 @@ import type {
 } from './types.js'
 
 export interface PersistedStoredFileRecord extends Omit<StoredFileRecord, 'content'> {
-  content_base64: string
+  content_base64?: string
 }
 
 export interface PersistedAppState {
@@ -35,6 +36,12 @@ export interface PersistedAppState {
   accessTokens: AccessTokenRecord[]
 }
 
+export interface AppStateRepository {
+  load(): Promise<PersistedAppState | null> | PersistedAppState | null
+  save(state: PersistedAppState): Promise<void> | void
+  clear(): Promise<void> | void
+}
+
 const EMPTY_STATE: PersistedAppState = {
   version: 1,
   persons: [],
@@ -51,7 +58,7 @@ const EMPTY_STATE: PersistedAppState = {
   accessTokens: [],
 }
 
-export class JsonAppStateStore {
+export class JsonAppStateStore implements AppStateRepository {
   constructor(private readonly filePath = resolve(process.cwd(), 'data', 'state.json')) {}
 
   load(): PersistedAppState | null {
@@ -98,5 +105,50 @@ export class JsonAppStateStore {
       confirmationTokens: parsed.confirmationTokens ?? [],
       accessTokens: parsed.accessTokens ?? [],
     }
+  }
+}
+
+export interface PostgresAppStateStoreConfig extends PoolConfig {
+  tableName?: string
+}
+
+export class PostgresAppStateStore implements AppStateRepository {
+  private readonly pool: Pool
+  private readonly tableName: string
+
+  constructor(config: PostgresAppStateStoreConfig) {
+    this.pool = new Pool(config)
+    this.tableName = config.tableName ?? 'app_state'
+  }
+
+  async init(): Promise<void> {
+    await this.pool.query(
+      `CREATE TABLE IF NOT EXISTS ${this.tableName} (
+        id integer PRIMARY KEY,
+        state jsonb NOT NULL
+      )`
+    )
+  }
+
+  async load(): Promise<PersistedAppState | null> {
+    await this.init()
+    const result = await this.pool.query<{ state: PersistedAppState }>(
+      `SELECT state FROM ${this.tableName} WHERE id = 1 LIMIT 1`
+    )
+    return result.rows[0]?.state ?? null
+  }
+
+  async save(state: PersistedAppState): Promise<void> {
+    await this.init()
+    await this.pool.query(
+      `INSERT INTO ${this.tableName} (id, state) VALUES (1, $1)
+       ON CONFLICT (id) DO UPDATE SET state = EXCLUDED.state`,
+      [state]
+    )
+  }
+
+  async clear(): Promise<void> {
+    await this.init()
+    await this.pool.query(`DELETE FROM ${this.tableName} WHERE id = 1`)
   }
 }

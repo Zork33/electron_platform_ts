@@ -75,6 +75,7 @@ export interface FilePart {
 }
 
 export interface StoredFileMetadata extends BaseRecord {
+  object_key: string
   file_storage_part_id: number
   storage_part_name: string
   path: string

@@ -4,7 +4,7 @@ TypeScript rewrite of the original `electron_platform` project.
 
 Python upstream: https://github.com/cheburatino/electron_platform
 
-The project contains a Vue 3 + Quasar frontend and a TypeScript backend built with Express, `ws`, and Vitest. The backend preserves the main API contracts used by the frontend and persists runtime state to `back/data/state.json`.
+The project contains a Vue 3 + Quasar frontend and a TypeScript backend built with Express, `ws`, and Vitest. The backend preserves the main API contracts used by the frontend and uses PostgreSQL and MinIO adapters at runtime, with a JSON/local-memory fallback for development and tests.
 
 ## Layout
 
@@ -69,7 +69,7 @@ yarn dev
 docker compose up --build
 ```
 
-The compose file mirrors the original service topology with PostgreSQL, migrator, and MinIO containers. The TS backend currently keeps its own persistent state file under `back/data/` and does not yet bind to those services at runtime.
+The compose file mirrors the original service topology with PostgreSQL, migrator, and MinIO containers. The TS backend reads the same env vars and binds to those services at runtime.
 
 Default ports:
 
@@ -105,7 +105,7 @@ npm run test:coverage
 
 ## Current State
 
-This is a TypeScript migration with persistent local state, not yet a production backend wired to PostgreSQL, MinIO or Qdrant.
+This is a TypeScript migration with PostgreSQL and MinIO adapters wired in. Qdrant and the full Python lifecycle/toolkit hierarchy are still not ported.
 
 Implemented:
 
@@ -115,7 +115,8 @@ Implemented:
 - Users, persons, contact data, events and report gallery.
 - File storage and file manager contracts with persisted file metadata and content.
 - Object-container storage summary.
-- Persistent local state snapshot under `back/data/state.json`.
+- PostgreSQL-backed application state with JSON fallback for local dev and tests.
+- MinIO-backed file blobs with persisted metadata.
 - Vitest test suite with coverage.
 
 Still ephemeral at runtime:
@@ -124,8 +125,6 @@ Still ephemeral at runtime:
 
 Not ported as production infrastructure yet:
 
-- PostgreSQL runtime persistence.
-- MinIO.
 - Qdrant.
 - Telegram/email adapters.
 - Full Python lifecycle/toolkit/storage architecture.

@@ -5,6 +5,18 @@ services:
       dockerfile: Dockerfile
     image: back
     container_name: electron-platform-back
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: main_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      FILE_STORAGE_HOST: file-storage
+      FILE_STORAGE_PORT: 9000
+      FILE_STORAGE_USE_SSL: "false"
+      FILE_STORAGE_CLIENT_LOGIN: admin
+      FILE_STORAGE_CLIENT_PASSWORD: FilestoragePass123
+      FILE_STORAGE_BUCKET_NAME: electron-platform-files
     ports:
       - "8000:8000"
     volumes:

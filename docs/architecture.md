@@ -1,6 +1,6 @@
 # TypeScript Architecture
 
-`electron_platform_ts` is the TypeScript rewrite of the original `electron_platform` project. The frontend keeps the original HTTP and WebSocket contracts, while the backend now persists application state to a local JSON snapshot under `back/data/state.json`.
+`electron_platform_ts` is the TypeScript rewrite of the original `electron_platform` project. The frontend keeps the original HTTP and WebSocket contracts. The backend now uses PostgreSQL and MinIO adapters at runtime, while local development and tests can still fall back to JSON and in-memory stores.
 
 ## Layout
 
@@ -23,7 +23,7 @@ The backend is organized around an Express app and a WebSocket server:
 - `app.ts` creates the Express app, mounts `/user-api`, `/dev-api`, `/health`, and attaches WebSocket authentication.
 - `index.ts` starts the HTTP server, the `/ws` WebSocket server, and the periodic ping loop.
 - `routes.ts` defines the HTTP routes and delegates to services.
-- `store.ts` is the composition root. It wires collections, services, and the persistent state file.
+- `store.ts` is the composition root. It wires collections, services, and the persistence adapters.
 - `types.ts` defines the shared DTO and domain shapes.
 
 ### Services
@@ -34,7 +34,7 @@ The service layer is split into small modules:
 - `auth-api-service.ts` - HTTP-facing auth orchestration.
 - `profile-service.ts` - `person`, `user`, `current-user`, avatar flow, and person search.
 - `crud-api-service.ts` - shared CRUD adapter for simple collections.
-- `file-storage.ts` - file parts and stored files with persistent snapshot support.
+- `file-storage.ts` - file parts and stored files with blob-store support.
 - `file-api-service.ts` - HTTP-oriented file-storage and file-manager operations.
 - `event-service.ts` - events and report gallery handling.
 - `object-container.ts` - aggregated storage summary.
@@ -42,7 +42,7 @@ The service layer is split into small modules:
 - `record-collection.ts` - generic CRUD collection with soft delete and restore.
 - `time.ts` - ISO time helpers.
 
-`store.ts` does not own route logic. It composes the services and persists a full application snapshot whenever data changes.
+`store.ts` does not own route logic. It composes the services and persists a snapshot whenever data changes.
 
 ## HTTP API
 
@@ -64,16 +64,21 @@ The route contracts match the frontend expectations. The implementation is small
 
 ## Persistence
 
-The backend now keeps durable local state:
+The backend persistence layer is split into two adapters:
 
-- Collections are stored in `CrudCollection` instances.
-- Auth tokens and confirmation records are saved in the application snapshot.
-- File metadata and file content are serialized in the snapshot.
-- `store.reset()` clears the runtime state, recreates the demo data, and writes the snapshot again.
+- `JsonAppStateStore` is the local fallback for development and tests.
+- `PostgresAppStateStore` stores the application snapshot in PostgreSQL when `DB_*` env vars are present.
 
-The snapshot file is created automatically under `back/data/state.json`.
+File content is handled by a blob store adapter:
 
-This is persistent local state, not yet PostgreSQL or MinIO-backed storage.
+- `MemoryBlobStore` is the local fallback.
+- `MinioBlobStore` stores file content in MinIO when `FILE_STORAGE_*` env vars are present.
+
+The application snapshot includes collection data, auth state, and file metadata. File blobs are restored from MinIO when available, with base64 fallback inside the snapshot for resilience.
+
+The snapshot file path used by the JSON fallback is `back/data/state.json`.
+
+WebSocket connection state remains runtime-only, because live sockets cannot be restored after process restart.
 
 ## WebSocket
 
@@ -88,8 +93,6 @@ Connection flow:
 5. Client `pong` frames update `last_pong_at`.
 6. `index.ts` sends periodic `ping` frames and updates `last_ping_at`.
 
-WebSocket connection state remains runtime-only, because live sockets cannot be restored after process restart.
-
 ## Frontend
 
 `front/` is the Vue 3 + Quasar application kept from the original project. It talks to the backend through the same API groups listed above.
@@ -102,7 +105,7 @@ WebSocket connection state remains runtime-only, because live sockets cannot be 
 - `front` on port `8080`
 - `db`, `db-migrator`, and `file-storage` to mirror the original topology
 
-The current TS backend does not yet bind to PostgreSQL or MinIO at runtime.
+The backend service receives `DB_*` and `FILE_STORAGE_*` env vars from compose, so it binds to PostgreSQL and MinIO at runtime.
 
 ## Testing
 
@@ -120,10 +123,8 @@ Coverage output is written to `back/coverage`.
 
 The TS rewrite still does not include the original production integrations:
 
-- PostgreSQL runtime adapter.
-- MinIO runtime adapter.
-- Qdrant vector search service.
+- Qdrant vector search.
 - Real email sender and Telegram bot adapters.
 - The full Python lifecycle/toolkit/storage hierarchy.
 
-The current backend is functionally closer to the original because the application state is now persistent, but the storage backends are still simplified compared to the Python deployment.
+The current backend is much closer to the original because state and file blobs now flow through external adapters, but some Python subsystems are still simplified or unported.

@@ -3,6 +3,7 @@ import { CrudCollection } from './record-collection.js'
 import { nowIso } from './time.js'
 import type { FilePart, StoredFileMetadata, StoredFileRecord } from './types.js'
 import type { PersistedStoredFileRecord } from './persistent-state.js'
+import type { BlobStore } from './blob-store.js'
 
 const DEFAULT_IMAGE =
   Buffer.from(
@@ -29,9 +30,10 @@ export class FileStorageService {
   readonly fileParts = new Map<string, FilePart>()
   readonly files: CrudCollection<StoredFileRecord>
 
-  constructor(private readonly deps: { onChange?: () => void } = {}) {
+  constructor(private readonly deps: { onChange?: () => void; blobStore?: BlobStore } = {}) {
     this.files = new CrudCollection<StoredFileRecord>(
       () => ({
+        object_key: '',
         file_storage_part_id: 0,
         storage_part_name: 'private',
         path: '',
@@ -69,6 +71,7 @@ export class FileStorageService {
 
     if (existing && input.replaceExisting) {
       const updated = this.files.patch(existing.id, {
+        object_key: existing.object_key,
         file_storage_part_id: existing.file_storage_part_id || 1,
         storage_part_name: input.storagePartName,
         path: input.path,
@@ -80,11 +83,14 @@ export class FileStorageService {
         etag: crypto.createHash('sha1').update(input.content).digest('hex'),
         content: input.content,
       } as Partial<StoredFileRecord>)
+      void this.deps.blobStore?.put(existing.object_key, input.content, input.contentType ?? existing.content_type)
       this.deps.onChange?.()
       return updated ?? existing
     }
 
+    const objectKey = crypto.randomUUID()
     const created = this.files.create({
+      object_key: objectKey,
       file_storage_part_id: part.name.length,
       storage_part_name: input.storagePartName,
       path: input.path,
@@ -96,6 +102,7 @@ export class FileStorageService {
       etag: crypto.createHash('sha1').update(input.content).digest('hex'),
       content: input.content,
     })
+    void this.deps.blobStore?.put(objectKey, input.content, input.contentType ?? null)
     this.deps.onChange?.()
     return created
   }
@@ -128,6 +135,7 @@ export class FileStorageService {
     const file = this.files.get(id)
     if (!file) return null
     if (hard) {
+      void this.deps.blobStore?.delete(file.object_key)
       this.files.remove(id)
       this.deps.onChange?.()
       return file
@@ -195,15 +203,20 @@ export class FileStorageService {
     }
   }
 
-  hydrate(snapshot: FileStorageSnapshot): void {
+  async hydrate(snapshot: FileStorageSnapshot): Promise<void> {
     this.fileParts.clear()
     for (const part of snapshot.fileParts) {
       this.fileParts.set(part.name, { ...part })
     }
-    const files = snapshot.files.map((file) => ({
-      ...file,
-      content: Buffer.from(file.content_base64, 'base64'),
-    }))
+    const files = await Promise.all(
+      snapshot.files.map(async (file) => {
+        const blobContent = await this.deps.blobStore?.get(file.object_key)
+        return {
+          ...file,
+          content: blobContent ?? Buffer.from(file.content_base64 ?? '', 'base64'),
+        }
+      })
+    )
     this.files.hydrate(files)
     this.deps.onChange?.()
   }
@@ -213,6 +226,7 @@ export const serializeStoredFileMetadata = (file: StoredFileRecord | null): Stor
   file
     ? {
         id: file.id,
+        object_key: file.object_key,
         file_storage_part_id: file.file_storage_part_id,
         storage_part_name: file.storage_part_name,
         path: file.path,

@@ -15,6 +15,7 @@ export function resetStore() {
 }
 
 export async function startTestServer(wsApiOverrides: Partial<WsApi> = {}): Promise<TestServer> {
+  await store.init()
   store.reset()
 
   const wsApi: WsApi = {

@@ -173,6 +173,7 @@ export class FileApiService {
   private serializeMetadata(file: NonNullable<ReturnType<FileStorageService['getFileById']>>): StoredFileMetadata {
     return {
       id: file.id,
+      object_key: file.object_key,
       file_storage_part_id: file.file_storage_part_id,
       storage_part_name: file.storage_part_name,
       path: file.path,

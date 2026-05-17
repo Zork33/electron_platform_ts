@@ -36,7 +36,7 @@ describe('persistent state', () => {
     }
   })
 
-  test('roundtrips file storage content and parts', () => {
+  test('roundtrips file storage content and parts', async () => {
     const storage = new FileStorageService()
     storage.reset()
     storage.setPart('avatars', true)
@@ -52,7 +52,7 @@ describe('persistent state', () => {
 
     const snapshot = storage.snapshot()
     const restored = new FileStorageService()
-    restored.hydrate(snapshot)
+    await restored.hydrate(snapshot)
 
     expect(restored.getPart('avatars')?.is_public).toBe(true)
     expect(restored.getFileById(file.id)?.content.toString()).toBe('avatar-bytes')

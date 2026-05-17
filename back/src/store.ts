@@ -11,11 +11,12 @@ import type {
 } from './types.js'
 import { AuthApiService } from './auth-api-service.js'
 import { AuthService } from './auth-service.js'
+import { MemoryBlobStore, MinioBlobStore } from './blob-store.js'
 import { CollectionCrudApiService } from './crud-api-service.js'
 import { EventService } from './event-service.js'
 import { FileApiService } from './file-api-service.js'
 import { FileStorageService, serializeStoredFileMetadata } from './file-storage.js'
-import { JsonAppStateStore, type PersistedAppState } from './persistent-state.js'
+import { JsonAppStateStore, PostgresAppStateStore, type AppStateRepository, type PersistedAppState } from './persistent-state.js'
 import { CrudCollection } from './record-collection.js'
 import { hoursFromNow } from './time.js'
 import { ObjectContainerService } from './object-container.js'
@@ -27,8 +28,35 @@ const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
 
 export const toFileMetadata = (file: StoredFileRecord | null) => serializeStoredFileMetadata(file)
 
+const createStateRepository = (): AppStateRepository => {
+  if (process.env.DB_HOST) {
+    return new PostgresAppStateStore({
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT ?? 5432),
+      database: process.env.DB_NAME ?? 'main_db',
+      user: process.env.DB_USER ?? 'postgres',
+      password: process.env.DB_PASSWORD ?? 'postgres',
+    })
+  }
+  return new JsonAppStateStore()
+}
+
+const createBlobStore = () => {
+  if (process.env.FILE_STORAGE_HOST) {
+    return new MinioBlobStore({
+      endPoint: process.env.FILE_STORAGE_HOST,
+      port: Number(process.env.FILE_STORAGE_PORT ?? 9000),
+      useSSL: String(process.env.FILE_STORAGE_USE_SSL ?? 'false') === 'true',
+      accessKey: process.env.FILE_STORAGE_CLIENT_LOGIN ?? 'admin',
+      secretKey: process.env.FILE_STORAGE_CLIENT_PASSWORD ?? 'FilestoragePass123',
+      bucketName: process.env.FILE_STORAGE_BUCKET_NAME ?? 'electron-platform-files',
+    })
+  }
+  return new MemoryBlobStore()
+}
+
 class AppStore {
-  private readonly persistence = new JsonAppStateStore()
+  private readonly persistence = createStateRepository()
   private persistenceMuted = false
 
   readonly persons = new CrudCollection<Person>(
@@ -120,7 +148,7 @@ class AppStore {
   )
 
   readonly sessionDays = DEFAULT_SESSION_DAYS
-  readonly fileStorage = new FileStorageService({ onChange: () => this.persist() })
+  readonly fileStorage = new FileStorageService({ onChange: () => this.persist(), blobStore: createBlobStore() })
   readonly contactInfoApi = new CollectionCrudApiService(this.contactInfos)
   readonly phoneNumberApi = new CollectionCrudApiService(this.phoneNumbers)
   readonly emailApi = new CollectionCrudApiService(this.emails)
@@ -150,15 +178,19 @@ class AppStore {
   readonly ws = new WebSocketService()
 
   constructor() {
-    const loaded = this.persistence.load()
-    if (loaded) {
-      this.hydrateState(loaded)
-    } else {
-      this.reset()
-    }
+    this.reset(false)
   }
 
-  reset(): void {
+  async init(): Promise<void> {
+    const loaded = await this.persistence.load()
+    if (loaded) {
+      await this.hydrateState(loaded)
+      return
+    }
+    await this.persist()
+  }
+
+  reset(persist = true): void {
     this.persistenceMuted = true
     this.persons.clear()
     this.users.clear()
@@ -174,7 +206,7 @@ class AppStore {
     this.seedCoreData()
     this.seedDemoData()
     this.persistenceMuted = false
-    this.persist()
+    if (persist) this.persist()
   }
 
   private seedCoreData(): void {
@@ -238,7 +270,7 @@ class AppStore {
     })
   }
 
-  private hydrateState(state: PersistedAppState): void {
+  private async hydrateState(state: PersistedAppState): Promise<void> {
     this.persistenceMuted = true
     this.persons.hydrate(state.persons)
     this.users.hydrate(state.users)
@@ -248,7 +280,7 @@ class AppStore {
     this.tgAccs.hydrate(state.tgAccs)
     this.webLinks.hydrate(state.webLinks)
     this.events.hydrate(state.events)
-    this.fileStorage.hydrate({ fileParts: state.fileParts, files: state.files })
+    await this.fileStorage.hydrate({ fileParts: state.fileParts, files: state.files })
     this.auth.reset()
     for (const record of state.confirmationTokens) {
       this.auth.confirmationTokens.set(record.token, { ...record })
@@ -281,7 +313,7 @@ class AppStore {
 
   private persist(): void {
     if (this.persistenceMuted) return
-    this.persistence.save(this.exportState())
+    void this.persistence.save(this.exportState())
   }
 
   snapshot() {
