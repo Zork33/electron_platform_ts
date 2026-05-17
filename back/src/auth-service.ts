@@ -15,6 +15,7 @@ const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
 export interface AuthServiceDeps {
   getUserById: (userId: number) => User | null
   patchUser: (userId: number, patch: Partial<User>) => void
+  onChange?: () => void
 }
 
 export class AuthService {
@@ -26,6 +27,7 @@ export class AuthService {
   reset(): void {
     this.confirmationTokens.clear()
     this.accessTokens.clear()
+    this.deps.onChange?.()
   }
 
   createConfirmation(
@@ -63,6 +65,7 @@ export class AuthService {
       ],
     }
     this.confirmationTokens.set(token, record)
+    this.deps.onChange?.()
     return record
   }
 
@@ -81,6 +84,7 @@ export class AuthService {
         error_message,
       },
     ]
+    this.deps.onChange?.()
     return record
   }
 
@@ -136,6 +140,7 @@ export class AuthService {
     }
     this.accessTokens.set(token, record)
     this.deps.patchUser(userId, { session_expires_at: record.expires_at })
+    this.deps.onChange?.()
     return record
   }
 
@@ -144,14 +149,19 @@ export class AuthService {
     if (!existing) return null
     if (new Date(existing.expires_at).getTime() <= Date.now()) {
       this.accessTokens.delete(oldToken)
+      this.deps.onChange?.()
       return null
     }
     this.accessTokens.delete(oldToken)
-    return this.issueAccessToken(existing.user_id)
+    const refreshed = this.issueAccessToken(existing.user_id)
+    this.deps.onChange?.()
+    return refreshed
   }
 
   revokeAccessToken(token: string): boolean {
-    return this.accessTokens.delete(token)
+    const removed = this.accessTokens.delete(token)
+    if (removed) this.deps.onChange?.()
+    return removed
   }
 
   revokeAllAccessTokensForUser(userId: number): number {
@@ -163,6 +173,7 @@ export class AuthService {
       }
     }
     this.deps.patchUser(userId, { session_expires_at: null })
+    this.deps.onChange?.()
     return removed
   }
 

@@ -1,66 +1,79 @@
-# Архитектура TypeScript-проекта
+# TypeScript Architecture
 
-`electron_platform_ts` - TypeScript-перенос исходного `electron_platform`. Сейчас проект сохраняет основные HTTP/WebSocket контракты фронтенда, но backend работает как in-memory реализация без PostgreSQL, MinIO, Qdrant и Python service-layer.
+`electron_platform_ts` is the TypeScript rewrite of the original `electron_platform` project. The frontend keeps the original HTTP and WebSocket contracts, while the backend now persists application state to a local JSON snapshot under `back/data/state.json`.
 
-## Общая структура
+## Layout
 
 ```text
 electron_platform_ts/
   back/                 TypeScript backend: Express, ws, Vitest
   front/                Vue 3 + Quasar frontend
-  docs/                 проектная документация
-  db_migrator/          legacy-артефакты исходного проекта
-  security-review/      legacy-артефакты анализа
-  docker-compose.yml    запуск backend и frontend контейнерами
+  docs/                 project documentation
+  db_migrator/          legacy migration artifacts from the original project
+  security-review/      legacy security review artifacts
+  docker-compose.yml    local container startup
 ```
 
-Backend находится в `back/src`. Текущие runtime-файлы написаны на TypeScript и собираются в `back/dist`.
+Backend runtime source lives in `back/src` and compiles to `back/dist`.
 
 ## Backend
 
-Backend построен вокруг Express-приложения и WebSocket-сервера:
+The backend is organized around an Express app and a WebSocket server:
 
-- `app.ts` создает Express-приложение, подключает `/user-api`, `/dev-api`, `/health` и WebSocket auth handler.
-- `index.ts` запускает HTTP-сервер, WebSocketServer на `/ws` и периодический ping для активных соединений.
-- `routes.ts` содержит HTTP-маршруты и связывает их с сервисами.
-- `store.ts` является композиционным корнем: создает коллекции, сервисы и seed-данные.
-- `types.ts` описывает основные DTO и доменные структуры.
+- `app.ts` creates the Express app, mounts `/user-api`, `/dev-api`, `/health`, and attaches WebSocket authentication.
+- `index.ts` starts the HTTP server, the `/ws` WebSocket server, and the periodic ping loop.
+- `routes.ts` defines the HTTP routes and delegates to services.
+- `store.ts` is the composition root. It wires collections, services, and the persistent state file.
+- `types.ts` defines the shared DTO and domain shapes.
 
-### Сервисы
+### Services
 
-Сервисный слой вынесен в отдельные модули:
+The service layer is split into small modules:
 
-- `auth-service.ts` - confirmation codes, access tokens, token refresh, logout.
-- `auth-api-service.ts` - прикладной auth flow для HTTP-ручек.
-- `profile-service.ts` - `person`, `user`, `current-user`, avatar flow, user provisioning.
-- `crud-api-service.ts` - общий CRUD adapter для простых коллекций.
-- `file-storage.ts` - in-memory файловое хранилище, parts, metadata, soft/hard delete.
-- `file-api-service.ts` - HTTP-oriented операции file-storage и file-manager.
-- `event-service.ts` - события и report gallery.
-- `object-container.ts` - агрегированная информация по хранилищу.
-- `ws-service.ts` - WebSocket connections, sockets, broadcast/send.
-- `record-collection.ts` - generic in-memory CRUD collection с soft delete и restore.
-- `time.ts` - helpers для ISO-времени.
+- `auth-service.ts` - confirmation codes, access tokens, refresh and logout flows.
+- `auth-api-service.ts` - HTTP-facing auth orchestration.
+- `profile-service.ts` - `person`, `user`, `current-user`, avatar flow, and person search.
+- `crud-api-service.ts` - shared CRUD adapter for simple collections.
+- `file-storage.ts` - file parts and stored files with persistent snapshot support.
+- `file-api-service.ts` - HTTP-oriented file-storage and file-manager operations.
+- `event-service.ts` - events and report gallery handling.
+- `object-container.ts` - aggregated storage summary.
+- `ws-service.ts` - WebSocket connection tracking and message routing.
+- `record-collection.ts` - generic CRUD collection with soft delete and restore.
+- `time.ts` - ISO time helpers.
 
-`store.ts` не содержит бизнес-логики маршрутов. Он только собирает зависимости, создает коллекции и предоставляет singleton `store` для текущей in-memory реализации.
+`store.ts` does not own route logic. It composes the services and persists a full application snapshot whenever data changes.
 
 ## HTTP API
 
-Основные группы маршрутов:
+The main API groups are:
 
-- `/user-api/auth/*` - login/registration confirmation code flow, token refresh, logout.
-- `/user-api/user/*` - users, current user, avatars.
-- `/user-api/person/*` - persons, list filters, vector search stub.
-- `/user-api/contact-info`, `/phone-number`, `/email`, `/tg-acc`, `/web-link` - generic CRUD.
+- `/user-api/auth/*` - login and registration confirmation flow, token refresh, logout.
+- `/user-api/user/*` - users, current user, avatar endpoints.
+- `/user-api/person/*` - persons, filters, and vector-style search.
+- `/user-api/contact-info/*`, `/phone-number/*`, `/email/*`, `/tg-acc/*`, `/web-link/*` - generic CRUD.
 - `/user-api/event/*` - events and report gallery.
 - `/user-api/file-storage/*` - storage parts and path-based file operations.
-- `/user-api/file-manager/*` - file manager API over stored files.
-- `/dev-api/file-storage/*` - dev/admin file storage helpers.
+- `/user-api/file-manager/*` - file manager endpoints for stored files.
+- `/dev-api/file-storage/*` - file storage helpers.
 - `/dev-api/object-container/storage-info` - storage summary.
-- `/dev-api/web-socket/*` - WebSocket pool and debug sends.
+- `/dev-api/web-socket/*` - WebSocket pool and debug send routes.
 - `/health` - service health.
 
-Responses intentionally mirror the contracts that frontend already expects. Some implementation details are simplified compared to the Python backend.
+The route contracts match the frontend expectations. The implementation is smaller than the original Python service stack, but the visible API surface is preserved.
+
+## Persistence
+
+The backend now keeps durable local state:
+
+- Collections are stored in `CrudCollection` instances.
+- Auth tokens and confirmation records are saved in the application snapshot.
+- File metadata and file content are serialized in the snapshot.
+- `store.reset()` clears the runtime state, recreates the demo data, and writes the snapshot again.
+
+The snapshot file is created automatically under `back/data/state.json`.
+
+This is persistent local state, not yet PostgreSQL or MinIO-backed storage.
 
 ## WebSocket
 
@@ -70,67 +83,47 @@ Connection flow:
 
 1. `attachWebSocketServer()` reads `token` from query params.
 2. `AuthService` resolves the user by access token.
-3. `WebSocketService` registers the connection and stores a socket adapter.
+3. `WebSocketService` registers the connection and keeps a socket adapter.
 4. The server sends a `connected` debug frame.
 5. Client `pong` frames update `last_pong_at`.
 6. `index.ts` sends periodic `ping` frames and updates `last_ping_at`.
 
-Dev routes can broadcast messages to all sockets, a user, or a specific connection.
-
-## Data Model And Persistence
-
-The current backend is intentionally in-memory:
-
-- All records live in `CrudCollection` instances.
-- Files live in `FileStorageService` memory maps.
-- Auth tokens and confirmation records live in `AuthService`.
-- WebSocket state lives in `WebSocketService`.
-- `store.reset()` clears runtime state and recreates the demo user.
-
-This means data disappears when the backend process restarts. The current implementation is useful for frontend/API compatibility and TS migration work, but it is not a production persistence layer.
+WebSocket connection state remains runtime-only, because live sockets cannot be restored after process restart.
 
 ## Frontend
 
-`front/` is the Vue 3 + Quasar application preserved from the original project. It talks to the backend through the same API groups listed above. The backend rewrite focuses on keeping those contracts usable while Python infrastructure is being replaced.
-
-Common commands:
-
-```powershell
-cd front
-yarn install
-yarn dev
-```
+`front/` is the Vue 3 + Quasar application kept from the original project. It talks to the backend through the same API groups listed above.
 
 ## Docker
 
-`docker-compose.yml` currently defines:
+`docker-compose.yml` defines:
 
 - `back` on port `8000`
 - `front` on port `8080`
+- `db`, `db-migrator`, and `file-storage` to mirror the original topology
 
-The compose file is aligned with the TS backend and does not start PostgreSQL, MinIO, Qdrant or the old Python backend.
+The current TS backend does not yet bind to PostgreSQL or MinIO at runtime.
 
 ## Testing
 
 Backend tests use Vitest:
 
-```powershell
+```sh
 cd back
 npm test
 npm run test:coverage
 ```
 
-Tests cover service modules and HTTP/WebSocket flows. Coverage is generated in `back/coverage`.
+Coverage output is written to `back/coverage`.
 
-## Current Limitations
+## Remaining Gaps
 
-The TS rewrite does not yet include these original Python integrations:
+The TS rewrite still does not include the original production integrations:
 
-- PostgreSQL persistence and migrations as runtime backend storage.
-- MinIO object storage.
-- Qdrant vector search.
-- Real email sender / Telegram bot adapters.
-- Production JWT signing and external auth storage.
-- Full Python lifecycle/toolkit/object-container architecture.
+- PostgreSQL runtime adapter.
+- MinIO runtime adapter.
+- Qdrant vector search service.
+- Real email sender and Telegram bot adapters.
+- The full Python lifecycle/toolkit/storage hierarchy.
 
-The intended next architecture step is to keep the current service boundaries and replace in-memory adapters with persistent implementations behind the same service APIs.
+The current backend is functionally closer to the original because the application state is now persistent, but the storage backends are still simplified compared to the Python deployment.

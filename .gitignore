@@ -93,3 +93,6 @@ docker-compose.override.yml
 # Temporary files
 *.tmp
 *.temp
+
+# Runtime data for TypeScript backend
+back/data/

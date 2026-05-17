@@ -9,16 +9,17 @@ import type {
   User,
   WebLink,
 } from './types.js'
-import { AuthService } from './auth-service.js'
 import { AuthApiService } from './auth-api-service.js'
+import { AuthService } from './auth-service.js'
 import { CollectionCrudApiService } from './crud-api-service.js'
-import { FileApiService } from './file-api-service.js'
 import { EventService } from './event-service.js'
+import { FileApiService } from './file-api-service.js'
 import { FileStorageService, serializeStoredFileMetadata } from './file-storage.js'
+import { JsonAppStateStore, type PersistedAppState } from './persistent-state.js'
 import { CrudCollection } from './record-collection.js'
-import { ProfileService } from './profile-service.js'
 import { hoursFromNow } from './time.js'
 import { ObjectContainerService } from './object-container.js'
+import { ProfileService } from './profile-service.js'
 import { WebSocketService } from './ws-service.js'
 
 const DEFAULT_SESSION_DAYS = 7
@@ -27,72 +28,99 @@ const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
 export const toFileMetadata = (file: StoredFileRecord | null) => serializeStoredFileMetadata(file)
 
 class AppStore {
-  readonly persons = new CrudCollection<Person>(() => ({
-    first_name: '',
-    last_name: null,
-    middle_name: null,
-    birth_date: null,
-    description: null,
-  }))
+  private readonly persistence = new JsonAppStateStore()
+  private persistenceMuted = false
 
-  readonly users = new CrudCollection<User>(() => ({
-    person_id: null,
-    auth_email: null,
-    has_access: true,
-    is_admin: false,
-    session_expires_at: null,
-    avatar_id: null,
-    auth_telegram_id: null,
-  }))
+  readonly persons = new CrudCollection<Person>(
+    () => ({
+      first_name: '',
+      last_name: null,
+      middle_name: null,
+      birth_date: null,
+      description: null,
+    }),
+    () => this.persist()
+  )
 
-  readonly contactInfos = new CrudCollection<ContactInfo>(() => ({
-    person_id: null,
-    phone_number_id: null,
-    tg_acc_id: null,
-    email_id: null,
-    web_link_id: null,
-    description: null,
-    is_primary: false,
-  }))
+  readonly users = new CrudCollection<User>(
+    () => ({
+      person_id: null,
+      auth_email: null,
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    }),
+    () => this.persist()
+  )
 
-  readonly phoneNumbers = new CrudCollection<PhoneNumber>(() => ({
-    phone_pattern_id: null,
-    number: null,
-    full_number: null,
-  }))
+  readonly contactInfos = new CrudCollection<ContactInfo>(
+    () => ({
+      person_id: null,
+      phone_number_id: null,
+      tg_acc_id: null,
+      email_id: null,
+      web_link_id: null,
+      description: null,
+      is_primary: false,
+    }),
+    () => this.persist()
+  )
 
-  readonly emails = new CrudCollection<Email>(() => ({
-    address: '',
-  }))
+  readonly phoneNumbers = new CrudCollection<PhoneNumber>(
+    () => ({
+      phone_pattern_id: null,
+      number: null,
+      full_number: null,
+    }),
+    () => this.persist()
+  )
 
-  readonly tgAccs = new CrudCollection<TgAcc>(() => ({
-    user_id: null,
-    username: null,
-    first_name: null,
-    last_name: null,
-    phone_number_id: null,
-  }))
+  readonly emails = new CrudCollection<Email>(
+    () => ({
+      address: '',
+    }),
+    () => this.persist()
+  )
 
-  readonly webLinks = new CrudCollection<WebLink>(() => ({
-    title: null,
-    type_id: 1,
-    custom_type_name: null,
-    url: '',
-    description: null,
-  }))
+  readonly tgAccs = new CrudCollection<TgAcc>(
+    () => ({
+      user_id: null,
+      username: null,
+      first_name: null,
+      last_name: null,
+      phone_number_id: null,
+    }),
+    () => this.persist()
+  )
 
-  readonly events = new CrudCollection<LoungeEvent>(() => ({
-    title: '',
-    description: null,
-    event_type_id: 1,
-    location_id: 1,
-    starts_at: null,
-    ends_at: null,
-    report_gallery_ids: [],
-  }))
+  readonly webLinks = new CrudCollection<WebLink>(
+    () => ({
+      title: null,
+      type_id: 1,
+      custom_type_name: null,
+      url: '',
+      description: null,
+    }),
+    () => this.persist()
+  )
+
+  readonly events = new CrudCollection<LoungeEvent>(
+    () => ({
+      title: '',
+      description: null,
+      event_type_id: 1,
+      location_id: 1,
+      starts_at: null,
+      ends_at: null,
+      report_gallery_ids: [],
+    }),
+    () => this.persist()
+  )
 
   readonly sessionDays = DEFAULT_SESSION_DAYS
-  readonly fileStorage = new FileStorageService()
+  readonly fileStorage = new FileStorageService({ onChange: () => this.persist() })
   readonly contactInfoApi = new CollectionCrudApiService(this.contactInfos)
   readonly phoneNumberApi = new CollectionCrudApiService(this.phoneNumbers)
   readonly emailApi = new CollectionCrudApiService(this.emails)
@@ -112,6 +140,7 @@ class AppStore {
     patchUser: (userId, patch) => {
       this.users.patch(userId, patch)
     },
+    onChange: () => this.persist(),
   })
   readonly authApiService = new AuthApiService({
     auth: this.auth,
@@ -121,10 +150,16 @@ class AppStore {
   readonly ws = new WebSocketService()
 
   constructor() {
-    this.reset()
+    const loaded = this.persistence.load()
+    if (loaded) {
+      this.hydrateState(loaded)
+    } else {
+      this.reset()
+    }
   }
 
   reset(): void {
+    this.persistenceMuted = true
     this.persons.clear()
     this.users.clear()
     this.contactInfos.clear()
@@ -136,7 +171,13 @@ class AppStore {
     this.fileStorage.reset()
     this.auth.reset()
     this.ws.reset()
+    this.seedCoreData()
+    this.seedDemoData()
+    this.persistenceMuted = false
+    this.persist()
+  }
 
+  private seedCoreData(): void {
     const person = this.persons.create({
       first_name: 'Alexey',
       last_name: 'Zorkaltsev',
@@ -156,7 +197,7 @@ class AppStore {
     this.auth.issueAccessToken(user.id)
   }
 
-  seedDemoData() {
+  private seedDemoData(): void {
     const phone = this.phoneNumbers.create({
       phone_pattern_id: null,
       number: '0000000000',
@@ -196,9 +237,58 @@ class AppStore {
       report_gallery_ids: [],
     })
   }
+
+  private hydrateState(state: PersistedAppState): void {
+    this.persistenceMuted = true
+    this.persons.hydrate(state.persons)
+    this.users.hydrate(state.users)
+    this.contactInfos.hydrate(state.contactInfos)
+    this.phoneNumbers.hydrate(state.phoneNumbers)
+    this.emails.hydrate(state.emails)
+    this.tgAccs.hydrate(state.tgAccs)
+    this.webLinks.hydrate(state.webLinks)
+    this.events.hydrate(state.events)
+    this.fileStorage.hydrate({ fileParts: state.fileParts, files: state.files })
+    this.auth.reset()
+    for (const record of state.confirmationTokens) {
+      this.auth.confirmationTokens.set(record.token, { ...record })
+    }
+    for (const record of state.accessTokens) {
+      this.auth.accessTokens.set(record.token, { ...record })
+    }
+    this.ws.reset()
+    this.persistenceMuted = false
+  }
+
+  private exportState(): PersistedAppState {
+    const fileStorageState = this.fileStorage.snapshot()
+    return {
+      version: 1,
+      persons: this.persons.snapshot(),
+      users: this.users.snapshot(),
+      contactInfos: this.contactInfos.snapshot(),
+      phoneNumbers: this.phoneNumbers.snapshot(),
+      emails: this.emails.snapshot(),
+      tgAccs: this.tgAccs.snapshot(),
+      webLinks: this.webLinks.snapshot(),
+      events: this.events.snapshot(),
+      fileParts: fileStorageState.fileParts,
+      files: fileStorageState.files,
+      confirmationTokens: [...this.auth.confirmationTokens.values()].map((record) => ({ ...record, history: [...record.history] })),
+      accessTokens: [...this.auth.accessTokens.values()].map((record) => ({ ...record })),
+    }
+  }
+
+  private persist(): void {
+    if (this.persistenceMuted) return
+    this.persistence.save(this.exportState())
+  }
+
+  snapshot() {
+    return this.exportState()
+  }
 }
 
 export const store = new AppStore()
-store.seedDemoData()
 
 export type AppStoreType = AppStore

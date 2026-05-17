@@ -4,7 +4,7 @@ TypeScript rewrite of the original `electron_platform` project.
 
 Python upstream: https://github.com/cheburatino/electron_platform
 
-The project contains a Vue 3 + Quasar frontend and a TypeScript backend built with Express, `ws`, and Vitest. The backend currently preserves the main API contracts used by the frontend, while persistence and infrastructure are implemented in memory.
+The project contains a Vue 3 + Quasar frontend and a TypeScript backend built with Express, `ws`, and Vitest. The backend preserves the main API contracts used by the frontend and persists runtime state to `back/data/state.json`.
 
 ## Layout
 
@@ -25,7 +25,7 @@ Main files:
 - `app.ts` - Express app factory and WebSocket attach logic.
 - `index.ts` - HTTP/WebSocket server startup.
 - `routes.ts` - HTTP route definitions.
-- `store.ts` - composition root for in-memory collections and services.
+- `store.ts` - composition root for persistent collections and services.
 - `types.ts` - shared backend DTO/domain types.
 
 Service modules:
@@ -69,7 +69,7 @@ yarn dev
 docker compose up --build
 ```
 
-The compose file now mirrors the original service topology with PostgreSQL, migrator, and MinIO containers, while the TS backend itself still runs in-memory.
+The compose file mirrors the original service topology with PostgreSQL, migrator, and MinIO containers. The TS backend currently keeps its own persistent state file under `back/data/` and does not yet bind to those services at runtime.
 
 Default ports:
 
@@ -105,7 +105,7 @@ npm run test:coverage
 
 ## Current State
 
-This is a TypeScript migration, not a production persistence rewrite yet.
+This is a TypeScript migration with persistent local state, not yet a production backend wired to PostgreSQL, MinIO or Qdrant.
 
 Implemented:
 
@@ -113,15 +113,13 @@ Implemented:
 - WebSocket endpoint and debug send routes.
 - Auth confirmation flow, access token refresh, logout and logout-all.
 - Users, persons, contact data, events and report gallery.
-- File storage and file manager contracts.
+- File storage and file manager contracts with persisted file metadata and content.
 - Object-container storage summary.
+- Persistent local state snapshot under `back/data/state.json`.
 - Vitest test suite with coverage.
 
-Still in memory:
+Still ephemeral at runtime:
 
-- Records.
-- Stored files.
-- Auth tokens and confirmation codes.
 - WebSocket connection state.
 
 Not ported as production infrastructure yet:

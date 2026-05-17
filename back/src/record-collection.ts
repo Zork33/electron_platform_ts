@@ -4,7 +4,10 @@ export class CrudCollection<T extends { id: number; created_at: string; updated_
   private items = new Map<number, T>()
   private nextId = 1
 
-  constructor(private readonly makeDefaults: () => Omit<T, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>) {}
+  constructor(
+    private readonly makeDefaults: () => Omit<T, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>,
+    private readonly onChange?: () => void
+  ) {}
 
   list(includeDeleted = false): T[] {
     return [...this.items.values()]
@@ -30,6 +33,7 @@ export class CrudCollection<T extends { id: number; created_at: string; updated_
       deleted_at: null,
     } as T
     this.items.set(record.id, record)
+    this.onChange?.()
     return record
   }
 
@@ -44,6 +48,7 @@ export class CrudCollection<T extends { id: number; created_at: string; updated_
       updated_at: nowIso(),
     } as T
     this.items.set(id, updated)
+    this.onChange?.()
     return updated
   }
 
@@ -59,11 +64,27 @@ export class CrudCollection<T extends { id: number; created_at: string; updated_
     const item = this.items.get(id) ?? null
     if (!item) return null
     this.items.delete(id)
+    this.onChange?.()
     return item
   }
 
   clear(): void {
     this.items.clear()
     this.nextId = 1
+    this.onChange?.()
+  }
+
+  snapshot(): T[] {
+    return this.list(true).map((item) => ({ ...item }))
+  }
+
+  hydrate(items: T[]): void {
+    this.items.clear()
+    this.nextId = 1
+    for (const item of items) {
+      this.items.set(item.id, { ...item })
+      this.nextId = Math.max(this.nextId, item.id + 1)
+    }
+    this.onChange?.()
   }
 }

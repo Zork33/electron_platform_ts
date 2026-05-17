@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import { CrudCollection } from './record-collection.js'
 import { nowIso } from './time.js'
 import type { FilePart, StoredFileMetadata, StoredFileRecord } from './types.js'
+import type { PersistedStoredFileRecord } from './persistent-state.js'
 
 const DEFAULT_IMAGE =
   Buffer.from(
@@ -19,26 +20,39 @@ export interface StoreFileInput {
   replaceExisting?: boolean
 }
 
+export interface FileStorageSnapshot {
+  fileParts: FilePart[]
+  files: PersistedStoredFileRecord[]
+}
+
 export class FileStorageService {
   readonly fileParts = new Map<string, FilePart>()
-  readonly files = new CrudCollection<StoredFileRecord>(() => ({
-    file_storage_part_id: 0,
-    storage_part_name: 'private',
-    path: '',
-    filename: '',
-    ext: '',
-    size_bytes: 0,
-    content_type: null,
-    last_modified: null,
-    etag: null,
-    content: Buffer.alloc(0),
-  }))
+  readonly files: CrudCollection<StoredFileRecord>
+
+  constructor(private readonly deps: { onChange?: () => void } = {}) {
+    this.files = new CrudCollection<StoredFileRecord>(
+      () => ({
+        file_storage_part_id: 0,
+        storage_part_name: 'private',
+        path: '',
+        filename: '',
+        ext: '',
+        size_bytes: 0,
+        content_type: null,
+        last_modified: null,
+        etag: null,
+        content: Buffer.alloc(0),
+      }),
+      () => this.deps.onChange?.()
+    )
+  }
 
   reset(): void {
     this.files.clear()
     this.fileParts.clear()
     this.fileParts.set('private', { name: 'private', is_public: false })
     this.fileParts.set('public', { name: 'public', is_public: true })
+    this.deps.onChange?.()
   }
 
   storeFile(input: StoreFileInput): StoredFileRecord {
@@ -66,10 +80,11 @@ export class FileStorageService {
         etag: crypto.createHash('sha1').update(input.content).digest('hex'),
         content: input.content,
       } as Partial<StoredFileRecord>)
+      this.deps.onChange?.()
       return updated ?? existing
     }
 
-    return this.files.create({
+    const created = this.files.create({
       file_storage_part_id: part.name.length,
       storage_part_name: input.storagePartName,
       path: input.path,
@@ -81,6 +96,8 @@ export class FileStorageService {
       etag: crypto.createHash('sha1').update(input.content).digest('hex'),
       content: input.content,
     })
+    this.deps.onChange?.()
+    return created
   }
 
   listFiles(includeDeleted = false): StoredFileRecord[] {
@@ -102,7 +119,9 @@ export class FileStorageService {
   deleteFileByPath(storagePartName: string, path: string): StoredFileRecord | null {
     const file = this.getFileByPath(storagePartName, path)
     if (!file) return null
-    return this.files.softDelete(file.id)
+    const deleted = this.files.softDelete(file.id)
+    if (deleted) this.deps.onChange?.()
+    return deleted
   }
 
   deleteFileById(id: number, hard = false): StoredFileRecord | null {
@@ -110,17 +129,24 @@ export class FileStorageService {
     if (!file) return null
     if (hard) {
       this.files.remove(id)
+      this.deps.onChange?.()
       return file
     }
-    return this.files.softDelete(id)
+    const deleted = this.files.softDelete(id)
+    if (deleted) this.deps.onChange?.()
+    return deleted
   }
 
   restoreFile(id: number): StoredFileRecord | null {
-    return this.files.restore(id)
+    const restored = this.files.restore(id)
+    if (restored) this.deps.onChange?.()
+    return restored
   }
 
   renameFile(id: number, filename: string): StoredFileRecord | null {
-    return this.files.patch(id, { filename })
+    const renamed = this.files.patch(id, { filename })
+    if (renamed) this.deps.onChange?.()
+    return renamed
   }
 
   getPartNames(): string[] {
@@ -134,6 +160,7 @@ export class FileStorageService {
   setPart(name: string, isPublic: boolean): FilePart {
     const part = { name, is_public: isPublic }
     this.fileParts.set(name, part)
+    this.deps.onChange?.()
     return part
   }
 
@@ -141,6 +168,7 @@ export class FileStorageService {
     const part = this.fileParts.get(name) ?? null
     if (!part) return null
     this.fileParts.delete(name)
+    this.deps.onChange?.()
     return part
   }
 
@@ -153,7 +181,31 @@ export class FileStorageService {
     if (part) return part
     const created = { name, is_public: false }
     this.fileParts.set(name, created)
+    this.deps.onChange?.()
     return created
+  }
+
+  snapshot(): FileStorageSnapshot {
+    return {
+      fileParts: [...this.fileParts.values()].map((part) => ({ ...part })),
+      files: this.files.snapshot().map((file) => ({
+        ...file,
+        content_base64: file.content.toString('base64'),
+      })),
+    }
+  }
+
+  hydrate(snapshot: FileStorageSnapshot): void {
+    this.fileParts.clear()
+    for (const part of snapshot.fileParts) {
+      this.fileParts.set(part.name, { ...part })
+    }
+    const files = snapshot.files.map((file) => ({
+      ...file,
+      content: Buffer.from(file.content_base64, 'base64'),
+    }))
+    this.files.hydrate(files)
+    this.deps.onChange?.()
   }
 }
 
