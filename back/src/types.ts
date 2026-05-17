@@ -132,6 +132,8 @@ export interface WsConnectionInfo {
   last_pong_at: string | null
 }
 
+export interface PersistedWsConnectionInfo extends WsConnectionInfo {}
+
 export interface CurrentUserResponse {
   user_id: number
   auth_email: string | null

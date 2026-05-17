@@ -3,6 +3,7 @@ import { Router as createRouter } from 'express'
 import multer from 'multer'
 import { store } from './store.js'
 import type { BaseRecord } from './types.js'
+import type { WsConnectionInfo } from './types.js'
 
 const upload = multer({ storage: multer.memoryStorage() })
 
@@ -484,7 +485,7 @@ function createDevApiRouter(wsApi: {
   router.get('/web-socket/pool', (_req, res) => {
     const connections = store.ws.listConnections()
     res.json({
-      total_users: new Set(connections.map((c) => c.user_id)).size,
+      total_users: new Set(connections.map((c: WsConnectionInfo) => c.user_id)).size,
       total_connections: connections.length,
       ping_interval: 30000,
       ping_timeout: 60000,

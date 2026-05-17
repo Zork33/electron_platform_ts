@@ -10,11 +10,13 @@ export class WebSocketService {
   readonly connections = new Map<number, WsConnectionInfo>()
   readonly sockets = new Map<number, WsSocketHandle>()
   private nextConnId = 1
+  constructor(private readonly deps: { onChange?: () => void } = {}) {}
 
   reset(): void {
     this.connections.clear()
     this.sockets.clear()
     this.nextConnId = 1
+    this.deps.onChange?.()
   }
 
   listConnections(): WsConnectionInfo[] {
@@ -36,6 +38,7 @@ export class WebSocketService {
       last_ping_at: nowIso(),
       last_pong_at: nowIso(),
     })
+    this.deps.onChange?.()
     return connId
   }
 
@@ -43,11 +46,13 @@ export class WebSocketService {
     const current = this.connections.get(connId)
     if (!current) return
     this.connections.set(connId, { ...current, ...patch })
+    this.deps.onChange?.()
   }
 
   removeConnection(connId: number): void {
     this.connections.delete(connId)
     this.sockets.delete(connId)
+    this.deps.onChange?.()
   }
 
   attachSocket(connId: number, socket: WsSocketHandle): void {
@@ -79,5 +84,19 @@ export class WebSocketService {
   sendToConnection(connId: number, payload: unknown): void {
     const data = JSON.stringify(payload)
     this.sockets.get(connId)?.send(data)
+  }
+
+  snapshot(): WsConnectionInfo[] {
+    return this.listConnections().map((connection) => ({ ...connection }))
+  }
+
+  hydrate(connections: WsConnectionInfo[]): void {
+    this.connections.clear()
+    this.sockets.clear()
+    this.nextConnId = 1
+    for (const connection of connections) {
+      this.connections.set(connection.conn_id, { ...connection })
+      this.nextConnId = Math.max(this.nextConnId, connection.conn_id + 1)
+    }
   }
 }

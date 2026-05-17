@@ -2,6 +2,7 @@ import http from 'node:http'
 import { WebSocketServer } from 'ws'
 import { attachWebSocketServer, createBackendApp } from './app.js'
 import { store } from './store.js'
+import type { WsSocketHandle } from './ws-service.js'
 
 export interface BackendLifecycle {
   start(): Promise<void>
@@ -24,7 +25,7 @@ export function createBackendLifecycle(): BackendLifecycle {
 
       const pingIntervalMs = 30_000
       pingTimer = setInterval(() => {
-        store.ws.forEachSocket((connId, socket) => {
+        store.ws.forEachSocket((connId: number, socket: WsSocketHandle) => {
           socket.send(JSON.stringify({ type: 'ping' }))
           store.ws.updateConnection(connId, { last_ping_at: new Date().toISOString() })
         })

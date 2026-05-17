@@ -24,7 +24,7 @@ import { ObjectContainerService } from './object-container.js'
 import { ProfileService } from './profile-service.js'
 import { NoopTelegramNotifier, TelegramBotApiNotifier, type TelegramNotifier } from './telegram-notifier.js'
 import { ConfirmCodeSettingsService } from './confirm-code-settings.js'
-import { WebSocketService } from './ws-service.js'
+import { WebSocketService } from './logic/process/web_socket/pool.js'
 
 const DEFAULT_SESSION_DAYS = 7
 const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
@@ -232,7 +232,7 @@ class AppStore {
     telegramNotifier: this.telegramNotifier,
     sessionDays: this.sessionDays,
   })
-  readonly ws = new WebSocketService()
+  readonly ws = new WebSocketService({ onChange: () => this.persist() })
 
   constructor() {
     this.reset(false)
@@ -345,7 +345,7 @@ class AppStore {
     for (const record of state.accessTokens) {
       this.auth.accessTokens.set(record.token, { ...record })
     }
-    this.ws.reset()
+    this.ws.hydrate(state.wsConnections ?? [])
     this.persistenceMuted = false
   }
 
@@ -365,6 +365,7 @@ class AppStore {
       files: fileStorageState.files,
       confirmationTokens: [...this.auth.confirmationTokens.values()].map((record) => ({ ...record, history: [...record.history] })),
       accessTokens: [...this.auth.accessTokens.values()].map((record) => ({ ...record })),
+      wsConnections: this.ws.snapshot(),
     }
   }
 

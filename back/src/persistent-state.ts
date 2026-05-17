@@ -11,6 +11,7 @@ import type {
   Person,
   PhoneNumber,
   StoredFileRecord,
+  PersistedWsConnectionInfo,
   TgAcc,
   User,
   WebLink,
@@ -34,6 +35,7 @@ export interface PersistedAppState {
   files: PersistedStoredFileRecord[]
   confirmationTokens: ConfirmationTokenRecord[]
   accessTokens: AccessTokenRecord[]
+  wsConnections: PersistedWsConnectionInfo[]
 }
 
 export interface AppStateRepository {
@@ -56,6 +58,7 @@ const EMPTY_STATE: PersistedAppState = {
   files: [],
   confirmationTokens: [],
   accessTokens: [],
+  wsConnections: [],
 }
 
 export class JsonAppStateStore implements AppStateRepository {
@@ -104,6 +107,7 @@ export class JsonAppStateStore implements AppStateRepository {
       files: parsed.files ?? [],
       confirmationTokens: parsed.confirmationTokens ?? [],
       accessTokens: parsed.accessTokens ?? [],
+      wsConnections: parsed.wsConnections ?? [],
     }
   }
 }

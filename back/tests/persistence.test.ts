@@ -21,6 +21,12 @@ describe('persistent state', () => {
         content: Buffer.from('persisted-file'),
         contentType: 'text/plain',
       })
+      const connId = store.ws.registerConnection({
+        userId: 1,
+        clientIp: '127.0.0.1',
+        userAgent: 'persist-test',
+      })
+      store.ws.updateConnection(connId, { last_pong_at: '2024-01-01T00:00:00.000Z' })
 
       const snapshot = store.snapshot()
       persistence.save(snapshot)
@@ -31,6 +37,7 @@ describe('persistent state', () => {
       expect(loaded?.confirmationTokens.some((record) => record.token === confirmation.token)).toBe(true)
       expect(loaded?.fileParts.map((part) => part.name)).toContain('public')
       expect(loaded?.files.some((file) => file.path === 'docs/readme.txt')).toBe(true)
+      expect(loaded?.wsConnections.some((connection) => connection.conn_id === connId)).toBe(true)
     } finally {
       rmSync(tempDir, { recursive: true, force: true })
     }
