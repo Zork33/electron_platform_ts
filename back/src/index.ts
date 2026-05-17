@@ -10,10 +10,10 @@ attachWebSocketServer(wss)
 
 const pingIntervalMs = 30_000
 const pingTimer = setInterval(() => {
-  for (const [connId, socket] of store.wsSockets.entries()) {
+  store.ws.forEachSocket((connId, socket) => {
     socket.send(JSON.stringify({ type: 'ping' }))
     store.updateWsConnection(connId, { last_ping_at: new Date().toISOString() })
-  }
+  })
 }, pingIntervalMs)
 
 const port = Number(process.env.PORT || 8000)

@@ -22,6 +22,7 @@ import { CrudCollection } from './record-collection.js'
 import { ProfileService } from './profile-service.js'
 import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
 import { ObjectContainerService } from './object-container.js'
+import { WebSocketService } from './ws-service.js'
 const DEFAULT_SESSION_DAYS = 7
 const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
 
@@ -103,9 +104,7 @@ class AppStore {
       this.users.patch(userId, patch)
     },
   })
-  readonly wsConnections = new Map<number, WsConnectionInfo>()
-  readonly wsSockets = new Map<number, { send: (data: string) => void; close: () => void }>()
-  private nextWsConnId = 1
+  readonly ws = new WebSocketService()
 
   readonly sessionDays = DEFAULT_SESSION_DAYS
 
@@ -124,9 +123,7 @@ class AppStore {
     this.events.clear()
     this.fileStorage.reset()
     this.auth.reset()
-    this.wsConnections.clear()
-    this.wsSockets.clear()
-    this.nextWsConnId = 1
+    this.ws.reset()
 
     const person = this.persons.create({
       first_name: 'Alexey',
@@ -247,7 +244,7 @@ class AppStore {
   }
 
   listWsConnections(): WsConnectionInfo[] {
-    return [...this.wsConnections.values()].sort((a, b) => a.conn_id - b.conn_id)
+    return this.ws.listConnections()
   }
 
   registerWsConnection(meta: {
@@ -255,28 +252,15 @@ class AppStore {
     clientIp: string | null
     userAgent: string | null
   }): number {
-    const connId = this.nextWsConnId++
-    this.wsConnections.set(connId, {
-      conn_id: connId,
-      user_id: meta.userId,
-      connected_at: nowIso(),
-      client_ip: meta.clientIp,
-      user_agent: meta.userAgent,
-      last_ping_at: nowIso(),
-      last_pong_at: nowIso(),
-    })
-    return connId
+    return this.ws.registerConnection(meta)
   }
 
   updateWsConnection(connId: number, patch: Partial<WsConnectionInfo>): void {
-    const current = this.wsConnections.get(connId)
-    if (!current) return
-    this.wsConnections.set(connId, { ...current, ...patch })
+    this.ws.updateConnection(connId, patch)
   }
 
   removeWsConnection(connId: number): void {
-    this.wsConnections.delete(connId)
-    this.wsSockets.delete(connId)
+    this.ws.removeConnection(connId)
   }
 
   seedDemoData() {
@@ -346,6 +330,14 @@ class AppStore {
 
   get accessTokens() {
     return this.auth.accessTokens
+  }
+
+  get wsConnections() {
+    return this.ws.connections
+  }
+
+  get wsSockets() {
+    return this.ws.sockets
   }
 }
 

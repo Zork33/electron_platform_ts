@@ -12,26 +12,9 @@ export type WsApi = {
 
 export function createDefaultWsApi(): WsApi {
   return {
-    broadcast(payload: unknown) {
-      const data = JSON.stringify(payload)
-      for (const socket of store.wsSockets.values()) {
-        socket.send(data)
-      }
-    },
-    sendToUser(userId: number, payload: unknown) {
-      const data = JSON.stringify(payload)
-      for (const [connId, meta] of store.wsConnections.entries()) {
-        if (meta.user_id === userId) {
-          const socket = store.wsSockets.get(connId)
-          socket?.send(data)
-        }
-      }
-    },
-    sendToConnection(connId: number, payload: unknown) {
-      const data = JSON.stringify(payload)
-      const socket = store.wsSockets.get(connId)
-      socket?.send(data)
-    },
+    broadcast: (payload: unknown) => store.ws.broadcast(payload),
+    sendToUser: (userId: number, payload: unknown) => store.ws.sendToUser(userId, payload),
+    sendToConnection: (connId: number, payload: unknown) => store.ws.sendToConnection(connId, payload),
   }
 }
 
@@ -67,7 +50,7 @@ export function attachWebSocketServer(wss: WebSocketServer) {
       userAgent: req.headers['user-agent'] ?? null,
     })
 
-    store.wsSockets.set(connId, {
+    store.ws.attachSocket(connId, {
       send: (data: string) => socket.send(data),
       close: () => socket.close(),
     })
