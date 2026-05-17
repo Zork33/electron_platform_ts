@@ -47,7 +47,7 @@ See [architecture.md](docs/architecture.md) for the full architecture descriptio
 
 Backend:
 
-```powershell
+```sh
 cd back
 npm install
 npm run dev
@@ -57,7 +57,7 @@ The backend listens on `http://localhost:8000` by default.
 
 Frontend:
 
-```powershell
+```sh
 cd front
 yarn install
 yarn dev
@@ -65,7 +65,7 @@ yarn dev
 
 ## Docker
 
-```powershell
+```sh
 docker compose up --build
 ```
 
@@ -78,7 +78,7 @@ Default ports:
 
 Run from `back/`:
 
-```powershell
+```sh
 npm run build
 npm test
 npm run test:coverage
@@ -134,27 +134,27 @@ Not ported as production infrastructure yet:
 
 1. Install backend dependencies:
 
-```powershell
-cd C:\work\stas001\electron_platform_ts\back
+```sh
+cd back
 npm install
 ```
 
 2. Run backend in development mode:
 
-```powershell
+```sh
 npm run dev
 ```
 
 3. In a separate terminal, install frontend dependencies:
 
-```powershell
-cd C:\work\stas001\electron_platform_ts\front
+```sh
+cd front
 yarn install
 ```
 
 4. Run frontend in development mode:
 
-```powershell
+```sh
 yarn dev
 ```
 
@@ -168,8 +168,8 @@ health:   http://localhost:8000/health
 
 6. Build and test backend:
 
-```powershell
-cd C:\work\stas001\electron_platform_ts\back
+```sh
+cd back
 npm run build
 npm test
 npm run test:coverage
@@ -177,7 +177,6 @@ npm run test:coverage
 
 7. Optional Docker startup from the project root:
 
-```powershell
-cd C:\work\stas001\electron_platform_ts
+```sh
 docker compose up --build
 ```
