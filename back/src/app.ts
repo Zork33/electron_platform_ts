@@ -38,13 +38,13 @@ export function createBackendApp(wsApi: WsApi = createDefaultWsApi()) {
 export function attachWebSocketServer(wss: WebSocketServer) {
   wss.on('connection', (socket, req) => {
     const token = typeof req.url === 'string' ? new URL(req.url, 'http://localhost').searchParams.get('token') : null
-    const user = token ? store.getUserByAccessToken(token) : null
+    const user = token ? store.auth.getUserByAccessToken(token) : null
     if (!user) {
       socket.close(4001, 'Unauthorized')
       return
     }
 
-    const connId = store.registerWsConnection({
+    const connId = store.ws.registerConnection({
       userId: user.id,
       clientIp: req.socket.remoteAddress ?? null,
       userAgent: req.headers['user-agent'] ?? null,
@@ -61,7 +61,7 @@ export function attachWebSocketServer(wss: WebSocketServer) {
       try {
         const data = JSON.parse(raw.toString()) as { type?: string }
         if (data.type === 'pong') {
-          store.updateWsConnection(connId, { last_pong_at: new Date().toISOString() })
+          store.ws.updateConnection(connId, { last_pong_at: new Date().toISOString() })
         }
       } catch {
         // ignore malformed frames
@@ -69,11 +69,11 @@ export function attachWebSocketServer(wss: WebSocketServer) {
     })
 
     socket.on('close', () => {
-      store.removeWsConnection(connId)
+      store.ws.removeConnection(connId)
     })
 
     socket.on('error', () => {
-      store.removeWsConnection(connId)
+      store.ws.removeConnection(connId)
     })
   })
 }

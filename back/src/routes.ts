@@ -31,7 +31,7 @@ const authTokenFromRequest = (req: Request): string | null => {
 const withCurrentUser = (req: Request) => {
   const token = authTokenFromRequest(req)
   if (!token) return null
-  return store.getUserByAccessToken(token)
+  return store.auth.getUserByAccessToken(token)
 }
 
 function createCrudRouter<T extends BaseRecord>(collection: {
@@ -143,7 +143,7 @@ function createUserApiRouter(): Router {
   router.get('/user/current-user', (req, res) => {
     const user = withCurrentUser(req)
     if (!user) return unauthorized(res, 'Access token is invalid or expired')
-    res.json(store.buildCurrentUser(user))
+    res.json(store.profileService.getCurrentUser(user))
   })
 
   router.use('/contact-info', createCrudRouter(store.contactInfoApi))

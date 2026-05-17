@@ -12,7 +12,7 @@ const pingIntervalMs = 30_000
 const pingTimer = setInterval(() => {
   store.ws.forEachSocket((connId, socket) => {
     socket.send(JSON.stringify({ type: 'ping' }))
-    store.updateWsConnection(connId, { last_ping_at: new Date().toISOString() })
+    store.ws.updateConnection(connId, { last_ping_at: new Date().toISOString() })
   })
 }, pingIntervalMs)
 
