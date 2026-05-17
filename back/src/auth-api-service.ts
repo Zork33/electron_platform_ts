@@ -1,4 +1,5 @@
 import type { AuthService } from './auth-service.js'
+import type { ConfirmCodeSettingsService } from './confirm-code-settings.js'
 import type { EmailSender } from './email-sender.js'
 import type { ProfileService } from './profile-service.js'
 import type { TelegramNotifier } from './telegram-notifier.js'
@@ -6,6 +7,7 @@ import type { TelegramNotifier } from './telegram-notifier.js'
 export interface AuthApiServiceDeps {
   auth: AuthService
   profile: ProfileService
+  confirmCodeSettings: ConfirmCodeSettingsService
   emailSender: EmailSender
   telegramNotifier: TelegramNotifier
   sessionDays: number
@@ -22,7 +24,7 @@ export class AuthApiService {
     const existingUser = this.deps.profile.findUserByEmail(authEmail)
     if (!existingUser) return { ok: false, error: 'User not found' }
     const token = this.deps.auth.createConfirmation('login', { auth_email: authEmail })
-    await this.sendConfirmationEmail(token.token, token.auth_email, token.confirm_code)
+    await this.sendConfirmationEmail(token.token, token.kind, token.auth_email, token.confirm_code)
     await this.sendConfirmationTelegram(token.token, token.auth_email, token.confirm_code)
     return {
       ok: true,
@@ -36,11 +38,11 @@ export class AuthApiService {
     first_name: string
     last_name?: string | null
     middle_name?: string | null
-  }): Promise<StartAuthResult> {
+    }): Promise<StartAuthResult> {
     const existingUser = this.deps.profile.findUserByEmail(payload.auth_email)
     if (existingUser) return { ok: false, error: 'User already exists' }
     const token = this.deps.auth.createConfirmation('register', payload)
-    await this.sendConfirmationEmail(token.token, token.auth_email, token.confirm_code)
+    await this.sendConfirmationEmail(token.token, token.kind, token.auth_email, token.confirm_code)
     await this.sendConfirmationTelegram(token.token, token.auth_email, token.confirm_code)
     return {
       ok: true,
@@ -105,8 +107,14 @@ export class AuthApiService {
     return { revoked_tokens: removed, user }
   }
 
-  private async sendConfirmationEmail(token: string, authEmail: string, confirmCode: string): Promise<void> {
-    const subject = 'Confirmation code'
+  private async sendConfirmationEmail(
+    token: string,
+    kind: 'login' | 'register',
+    authEmail: string,
+    confirmCode: string
+  ): Promise<void> {
+    const settings = this.deps.confirmCodeSettings.getByReasonCode(kind === 'login' ? 'LOGIN' : 'REGISTRATION')
+    const subject = settings.sending_subject
     const htmlBody = `<p>Your confirmation code: <strong>${confirmCode}</strong></p>`
     try {
       const ok = await this.deps.emailSender.sendHtmlEmail([authEmail], subject, htmlBody)
@@ -123,7 +131,6 @@ export class AuthApiService {
     const text = `Your confirmation code: ${confirmCode}`
     try {
       await this.deps.telegramNotifier.sendMessage(user.auth_telegram_id, text)
-      this.deps.auth.markConfirmationSent(token, true)
     } catch (error) {
       this.deps.auth.markConfirmationSent(token, false, error instanceof Error ? error.message : 'Failed to send confirmation telegram message')
     }

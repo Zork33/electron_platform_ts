@@ -23,6 +23,7 @@ import { hoursFromNow } from './time.js'
 import { ObjectContainerService } from './object-container.js'
 import { ProfileService } from './profile-service.js'
 import { NoopTelegramNotifier, TelegramBotApiNotifier, type TelegramNotifier } from './telegram-notifier.js'
+import { ConfirmCodeSettingsService } from './confirm-code-settings.js'
 import { WebSocketService } from './ws-service.js'
 
 const DEFAULT_SESSION_DAYS = 7
@@ -84,6 +85,24 @@ const createTelegramNotifier = (): TelegramNotifier => {
     apiUrl: process.env.TELEGRAM_API_URL,
   })
 }
+
+const createConfirmCodeSettings = () =>
+  new ConfirmCodeSettingsService({
+    login: {
+      confirm_code_length: Number(process.env.CONFIRM_CODE_LENGTH ?? DEFAULT_CONFIRM_CODE_LENGTH),
+      confirm_code_alphabet: process.env.CONFIRM_CODE_ALPHABET ?? DEFAULT_CONFIRM_CODE_ALPHABET,
+      confirm_code_ttl_minutes: Number(process.env.CONFIRM_TTL_MINUTES ?? DEFAULT_CONFIRM_TTL_MINUTES),
+      sending_max_attempts_count: Number(process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS),
+      verification_max_attempts_count: Number(process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS),
+    },
+    registration: {
+      confirm_code_length: Number(process.env.CONFIRM_CODE_LENGTH ?? DEFAULT_CONFIRM_CODE_LENGTH),
+      confirm_code_alphabet: process.env.CONFIRM_CODE_ALPHABET ?? DEFAULT_CONFIRM_CODE_ALPHABET,
+      confirm_code_ttl_minutes: Number(process.env.CONFIRM_TTL_MINUTES ?? DEFAULT_CONFIRM_TTL_MINUTES),
+      sending_max_attempts_count: Number(process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS),
+      verification_max_attempts_count: Number(process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS),
+    },
+  })
 
 class AppStore {
   private readonly persistence = createStateRepository()
@@ -181,6 +200,7 @@ class AppStore {
   readonly fileStorage = new FileStorageService({ onChange: () => this.persist(), blobStore: createBlobStore() })
   readonly emailSender = createEmailSender()
   readonly telegramNotifier = createTelegramNotifier()
+  readonly confirmCodeSettings = createConfirmCodeSettings()
   readonly contactInfoApi = new CollectionCrudApiService(this.contactInfos)
   readonly phoneNumberApi = new CollectionCrudApiService(this.phoneNumbers)
   readonly emailApi = new CollectionCrudApiService(this.emails)
@@ -202,15 +222,12 @@ class AppStore {
     },
     onChange: () => this.persist(),
     sessionDays: Number(process.env.AUTH_SESSION_DAYS ?? DEFAULT_SESSION_DAYS),
-    confirmCodeLength: Number(process.env.CONFIRM_CODE_LENGTH ?? DEFAULT_CONFIRM_CODE_LENGTH),
-    confirmCodeAlphabet: process.env.CONFIRM_CODE_ALPHABET ?? DEFAULT_CONFIRM_CODE_ALPHABET,
-    confirmTtlMinutes: Number(process.env.CONFIRM_TTL_MINUTES ?? DEFAULT_CONFIRM_TTL_MINUTES),
-    confirmSendingMaxAttempts: Number(process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS),
-    confirmVerificationMaxAttempts: Number(process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS),
+    confirmCodeSettings: this.confirmCodeSettings,
   })
   readonly authApiService = new AuthApiService({
     auth: this.auth,
     profile: this.profileService,
+    confirmCodeSettings: this.confirmCodeSettings,
     emailSender: this.emailSender,
     telegramNotifier: this.telegramNotifier,
     sessionDays: this.sessionDays,

@@ -6,15 +6,11 @@ import type {
   User,
 } from './types.js'
 import { createJwt, verifyJwt } from './jwt.js'
+import { ConfirmCodeSettingsService } from './logic/process/auth/confirm_code/settings.js'
 import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
 
 const DEFAULT_SESSION_DAYS = 7
 const DEFAULT_JWT_SECRET = 'electron_platform_ts_dev_secret'
-const DEFAULT_CONFIRM_CODE_LENGTH = 6
-const DEFAULT_CONFIRM_CODE_ALPHABET = '0123456789'
-const DEFAULT_CONFIRM_TTL_MINUTES = 10
-const DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS = 3
-const DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS = 5
 
 export interface AuthServiceDeps {
   getUserById: (userId: number) => User | null
@@ -22,11 +18,7 @@ export interface AuthServiceDeps {
   onChange?: () => void
   jwtSecret?: string
   sessionDays?: number
-  confirmCodeLength?: number
-  confirmCodeAlphabet?: string
-  confirmTtlMinutes?: number
-  confirmSendingMaxAttempts?: number
-  confirmVerificationMaxAttempts?: number
+  confirmCodeSettings?: ConfirmCodeSettingsService
 }
 
 export class AuthService {
@@ -34,24 +26,29 @@ export class AuthService {
   readonly accessTokens = new Map<string, AccessTokenRecord>()
   private readonly jwtSecret: string
   private readonly sessionDays: number
-  private readonly confirmCodeLength: number
-  private readonly confirmCodeAlphabet: string
-  private readonly confirmTtlMinutes: number
-  private readonly confirmSendingMaxAttempts: number
-  private readonly confirmVerificationMaxAttempts: number
+  private readonly confirmCodeSettings: ConfirmCodeSettingsService
 
   constructor(private readonly deps: AuthServiceDeps) {
     this.jwtSecret = deps.jwtSecret ?? process.env.AUTH_JWT_SECRET ?? DEFAULT_JWT_SECRET
     this.sessionDays = deps.sessionDays ?? Number(process.env.AUTH_SESSION_DAYS ?? DEFAULT_SESSION_DAYS)
-    this.confirmCodeLength = deps.confirmCodeLength ?? Number(process.env.CONFIRM_CODE_LENGTH ?? DEFAULT_CONFIRM_CODE_LENGTH)
-    this.confirmCodeAlphabet = deps.confirmCodeAlphabet ?? process.env.CONFIRM_CODE_ALPHABET ?? DEFAULT_CONFIRM_CODE_ALPHABET
-    this.confirmTtlMinutes = deps.confirmTtlMinutes ?? Number(process.env.CONFIRM_TTL_MINUTES ?? DEFAULT_CONFIRM_TTL_MINUTES)
-    this.confirmSendingMaxAttempts = deps.confirmSendingMaxAttempts ?? Number(
-      process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS
-    )
-    this.confirmVerificationMaxAttempts = deps.confirmVerificationMaxAttempts ?? Number(
-      process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS
-    )
+    this.confirmCodeSettings =
+      deps.confirmCodeSettings ??
+      new ConfirmCodeSettingsService({
+        login: {
+          confirm_code_length: Number(process.env.CONFIRM_CODE_LENGTH ?? 6),
+          confirm_code_alphabet: process.env.CONFIRM_CODE_ALPHABET ?? '0123456789',
+          confirm_code_ttl_minutes: Number(process.env.CONFIRM_TTL_MINUTES ?? 10),
+          sending_max_attempts_count: Number(process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? 3),
+          verification_max_attempts_count: Number(process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? 5),
+        },
+        registration: {
+          confirm_code_length: Number(process.env.CONFIRM_CODE_LENGTH ?? 6),
+          confirm_code_alphabet: process.env.CONFIRM_CODE_ALPHABET ?? '0123456789',
+          confirm_code_ttl_minutes: Number(process.env.CONFIRM_TTL_MINUTES ?? 10),
+          sending_max_attempts_count: Number(process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? 3),
+          verification_max_attempts_count: Number(process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? 5),
+        },
+      })
   }
 
   reset(): void {
@@ -69,6 +66,7 @@ export class AuthService {
       middle_name?: string | null
     }
   ): ConfirmationTokenRecord {
+    const settings = this.confirmCodeSettings.getByReasonCode(kind === 'login' ? 'LOGIN' : 'REGISTRATION')
     const token = crypto.randomUUID()
     const record: ConfirmationTokenRecord = {
       token,
@@ -77,8 +75,8 @@ export class AuthService {
       first_name: payload.first_name ?? null,
       last_name: payload.last_name ?? null,
       middle_name: payload.middle_name ?? null,
-      confirm_code: this.generateConfirmCode(),
-      expires_at: minutesFromNow(this.confirmTtlMinutes),
+      confirm_code: this.generateConfirmCode(settings.confirm_code_length, settings.confirm_code_alphabet),
+      expires_at: minutesFromNow(settings.confirm_code_ttl_minutes),
       is_sent: false,
       sending_attempts_count: 0,
       sending_error: null,
@@ -99,10 +97,10 @@ export class AuthService {
     return record
   }
 
-  private generateConfirmCode(length = 6): string {
-    const alphabet = this.confirmCodeAlphabet.length > 0 ? this.confirmCodeAlphabet : DEFAULT_CONFIRM_CODE_ALPHABET
-    const effectiveLength = Number.isFinite(length) && length > 0 ? length : this.confirmCodeLength
-    return Array.from({ length: effectiveLength }, () => alphabet[crypto.randomInt(0, alphabet.length)]).join('')
+  private generateConfirmCode(length = 6, alphabet = '0123456789'): string {
+    const effectiveAlphabet = alphabet.length > 0 ? alphabet : '0123456789'
+    const effectiveLength = Number.isFinite(length) && length > 0 ? length : 6
+    return Array.from({ length: effectiveLength }, () => effectiveAlphabet[crypto.randomInt(0, effectiveAlphabet.length)]).join('')
   }
 
   private appendConfirmationHistory(
@@ -141,6 +139,11 @@ export class AuthService {
   markConfirmationSent(token: string, ok: boolean, error_message: string | null = null): ConfirmationTokenRecord | null {
     const record = this.getConfirmation(token)
     if (!record) return null
+    const settings = this.confirmCodeSettings.getByReasonCode(record.kind === 'login' ? 'LOGIN' : 'REGISTRATION')
+    if (record.sending_attempts_count >= settings.sending_max_attempts_count) {
+      record.sending_error = 'Sending attempts exceeded'
+      return this.appendConfirmationHistory(record, 'send', false, record.sending_error)
+    }
     record.is_sent = ok
     record.sending_attempts_count += 1
     record.sending_error = error_message
@@ -153,8 +156,11 @@ export class AuthService {
       return { ok: false, error: 'Confirmation token is invalid or expired' }
     }
 
-    if (record.verification_attempts_count >= this.confirmVerificationMaxAttempts) {
-      return { ok: false, error: 'Verification attempts exceeded' }
+    const settings = this.confirmCodeSettings.getByReasonCode(record.kind === 'login' ? 'LOGIN' : 'REGISTRATION')
+    if (record.verification_attempts_count >= settings.verification_max_attempts_count) {
+      record.verification_error = 'Verification attempts exceeded'
+      this.appendConfirmationHistory(record, 'verify', false, record.verification_error)
+      return { ok: false, error: record.verification_error }
     }
 
     record.verification_attempts_count += 1
@@ -247,11 +253,5 @@ export class AuthService {
     if (!user.has_access) return null
     if (user.session_expires_at && new Date(user.session_expires_at).getTime() <= Date.now()) return null
     return user
-  }
-
-  hasConfirmationLimitReached(token: string): boolean {
-    const record = this.confirmationTokens.get(token)
-    if (!record) return true
-    return record.sending_attempts_count >= this.confirmSendingMaxAttempts
   }
 }
