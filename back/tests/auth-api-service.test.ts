@@ -24,6 +24,9 @@ describe('auth api service', () => {
     auth_telegram_id: null,
   }))
   const fileStorage = new FileStorageService()
+  const emailSender = {
+    sendHtmlEmail: async () => true,
+  }
   const auth = new AuthService({
     getUserById: (userId) => users.get(userId),
     patchUser: (userId, patch) => {
@@ -31,7 +34,7 @@ describe('auth api service', () => {
     },
   })
   const profile = new ProfileService({ persons, users, fileStorage })
-  const service = new AuthApiService({ auth, profile, sessionDays: 7 })
+  const service = new AuthApiService({ auth, profile, emailSender, sessionDays: 7 })
 
   beforeEach(() => {
     persons.clear()
@@ -40,10 +43,10 @@ describe('auth api service', () => {
     auth.reset()
   })
 
-  test('drives login and logout flow', () => {
-    const start = service.startLogin('demo@example.com')
+  test('drives login and logout flow', async () => {
+    const start = await service.startLogin('demo@example.com')
     expect(start.confirmation_token).toBeTruthy()
-    expect(service.finishLogin(start.confirmation_token, '123456')).toEqual(
+    expect(service.finishLogin(start.confirmation_token, auth.confirmationTokens.get(start.confirmation_token)?.confirm_code ?? '')).toEqual(
       expect.objectContaining({ user_id: 1, access_token: expect.any(String) })
     )
 

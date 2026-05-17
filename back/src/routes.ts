@@ -83,17 +83,17 @@ function createCrudRouter<T extends BaseRecord>(collection: {
 function createUserApiRouter(): Router {
   const router = createRouter()
 
-  router.post('/auth/login-confirm-code-start', (req, res) => {
+  router.post('/auth/login-confirm-code-start', async (req, res) => {
     const authEmail = String(req.body?.auth_email ?? '').trim()
     if (!authEmail) return badRequest(res, 'auth_email is required')
-    res.json(store.authApiService.startLogin(authEmail))
+    res.json(await store.authApiService.startLogin(authEmail))
   })
 
-  router.post('/auth/registration-confirm-code-start', (req, res) => {
+  router.post('/auth/registration-confirm-code-start', async (req, res) => {
     const authEmail = String(req.body?.auth_email ?? '').trim()
     const firstName = String(req.body?.first_name ?? '').trim()
     if (!authEmail || !firstName) return badRequest(res, 'auth_email and first_name are required')
-    res.json(store.authApiService.startRegistration({
+    res.json(await store.authApiService.startRegistration({
       auth_email: authEmail,
       first_name: firstName,
       last_name: req.body?.last_name ? String(req.body.last_name) : null,
@@ -193,7 +193,10 @@ function createUserApiRouter(): Router {
   router.post('/person/vector_search', (req, res) => {
     const query = String(req.body?.query ?? '').trim().toLowerCase()
     const limit = Math.max(1, toNumber(req.body?.limit, 10))
-    res.json(store.profileService.vectorSearch(query, limit))
+    const rawScoreThreshold = req.body?.score_threshold ?? req.query.score_threshold
+    const parsedScoreThreshold = Number(rawScoreThreshold)
+    const scoreThreshold = Number.isFinite(parsedScoreThreshold) ? parsedScoreThreshold : null
+    res.json(store.profileService.vectorSearch(query, limit, scoreThreshold))
   })
 
   router.get('/user', (req, res) => {

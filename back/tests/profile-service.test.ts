@@ -28,7 +28,7 @@ describe('profile service', () => {
 
     const person = service.createPerson({ first_name: 'Alex', last_name: 'Smith' })
     expect(service.getPerson(person.id)?.first_name).toBe('Alex')
-    expect(service.vectorSearch('alex', 10)[0].id).toBe(person.id)
+    expect(service.vectorSearch('alex', 10, 0)[0].id).toBe(person.id)
 
     const user = service.createUser({ person_id: person.id, auth_email: 'alex@example.com' })
     expect(service.getUser(user.id)?.auth_email).toBe('alex@example.com')

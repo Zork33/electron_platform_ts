@@ -5,24 +5,29 @@ import type {
   ConfirmationTokenRecord,
   User,
 } from './types.js'
+import { createJwt, verifyJwt } from './jwt.js'
 import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
 
-const DEFAULT_CONFIRM_CODE = '123456'
 const DEFAULT_SESSION_DAYS = 7
 const CONFIRM_TTL_MINUTES = 10
 const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
+const DEFAULT_JWT_SECRET = 'electron_platform_ts_dev_secret'
 
 export interface AuthServiceDeps {
   getUserById: (userId: number) => User | null
   patchUser: (userId: number, patch: Partial<User>) => void
   onChange?: () => void
+  jwtSecret?: string
 }
 
 export class AuthService {
   readonly confirmationTokens = new Map<string, ConfirmationTokenRecord>()
   readonly accessTokens = new Map<string, AccessTokenRecord>()
+  private readonly jwtSecret: string
 
-  constructor(private readonly deps: AuthServiceDeps) {}
+  constructor(private readonly deps: AuthServiceDeps) {
+    this.jwtSecret = deps.jwtSecret ?? process.env.AUTH_JWT_SECRET ?? DEFAULT_JWT_SECRET
+  }
 
   reset(): void {
     this.confirmationTokens.clear()
@@ -47,7 +52,7 @@ export class AuthService {
       first_name: payload.first_name ?? null,
       last_name: payload.last_name ?? null,
       middle_name: payload.middle_name ?? null,
-      confirm_code: DEFAULT_CONFIRM_CODE,
+      confirm_code: this.generateConfirmCode(),
       expires_at: minutesFromNow(CONFIRM_TTL_MINUTES),
       is_sent: false,
       sending_attempts_count: 0,
@@ -67,6 +72,11 @@ export class AuthService {
     this.confirmationTokens.set(token, record)
     this.deps.onChange?.()
     return record
+  }
+
+  private generateConfirmCode(length = 6): string {
+    const digits = Array.from({ length }, () => crypto.randomInt(0, 10).toString())
+    return digits.join('')
   }
 
   private appendConfirmationHistory(
@@ -132,11 +142,20 @@ export class AuthService {
   }
 
   issueAccessToken(userId: number): AccessTokenRecord {
-    const token = crypto.randomUUID()
+    const expires_at = hoursFromNow(ACCESS_TTL_HOURS)
+    const token = createJwt(
+      {
+        user_id: userId,
+        created_at: Math.floor(Date.now() / 1000),
+        expires_at: Math.floor(new Date(expires_at).getTime() / 1000),
+        jti: crypto.randomUUID(),
+      },
+      this.jwtSecret
+    )
     const record: AccessTokenRecord = {
       token,
       user_id: userId,
-      expires_at: hoursFromNow(ACCESS_TTL_HOURS),
+      expires_at,
     }
     this.accessTokens.set(token, record)
     this.deps.patchUser(userId, { session_expires_at: record.expires_at })
@@ -145,9 +164,11 @@ export class AuthService {
   }
 
   refreshAccessToken(oldToken: string): AccessTokenRecord | null {
+    const payload = verifyJwt(oldToken, this.jwtSecret)
+    if (!payload) return null
     const existing = this.accessTokens.get(oldToken)
     if (!existing) return null
-    if (new Date(existing.expires_at).getTime() <= Date.now()) {
+    if (new Date(existing.expires_at).getTime() <= Date.now() || new Date(payload.expires_at * 1000).getTime() <= Date.now()) {
       this.accessTokens.delete(oldToken)
       this.deps.onChange?.()
       return null
@@ -178,9 +199,11 @@ export class AuthService {
   }
 
   getUserByAccessToken(token: string): User | null {
+    const payload = verifyJwt(token, this.jwtSecret)
+    if (!payload) return null
     const record = this.accessTokens.get(token)
     if (!record) return null
-    if (new Date(record.expires_at).getTime() <= Date.now()) {
+    if (new Date(record.expires_at).getTime() <= Date.now() || payload.user_id !== record.user_id) {
       this.accessTokens.delete(token)
       return null
     }

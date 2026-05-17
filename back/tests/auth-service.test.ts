@@ -35,15 +35,17 @@ describe('auth service', () => {
   test('confirmation lifecycle records history', () => {
     const confirmation = auth.createConfirmation('login', { auth_email: 'demo@example.com' })
     expect(confirmation.history[0].action).toBe('create')
+    expect(confirmation.confirm_code).toMatch(/^\d{6}$/)
     expect(auth.markConfirmationSent(confirmation.token, true)?.sending_attempts_count).toBe(1)
     expect(auth.verifyConfirmation(confirmation.token, 'wrong')).toEqual({ ok: false, error: 'Invalid confirmation code' })
-    expect(auth.verifyConfirmation(confirmation.token, '123456')).toEqual(
+    expect(auth.verifyConfirmation(confirmation.token, confirmation.confirm_code)).toEqual(
       expect.objectContaining({ ok: true, record: expect.objectContaining({ is_verified: true }) })
     )
   })
 
   test('access tokens follow user lifecycle', () => {
     const token = auth.issueAccessToken(1)
+    expect(token.token.split('.')).toHaveLength(3)
     expect(auth.getUserByAccessToken(token.token)?.auth_email).toBe('demo@example.com')
 
     const refreshed = auth.refreshAccessToken(token.token)

@@ -86,13 +86,15 @@ describe('http api', () => {
     })
     expect(loginStart.response.ok).toBe(true)
     expect(loginStart.body.confirmation_token).toBeTruthy()
+    const loginConfirmCode = store.auth.confirmationTokens.get(loginStart.body.confirmation_token)?.confirm_code
+    expect(loginConfirmCode).toMatch(/^\d{6}$/)
 
     const loginFinish = await request('/user-api/auth/login-confirm-code-finish', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify({
         confirmation_token: loginStart.body.confirmation_token,
-        confirm_code: '123456',
+        confirm_code: loginConfirmCode,
       }),
     })
     expect(loginFinish.response.ok).toBe(true)
@@ -139,13 +141,15 @@ describe('http api', () => {
       }),
     })
     expect(registrationStart.body.confirmation_token).toBeTruthy()
+    const registrationConfirmCode = store.auth.confirmationTokens.get(registrationStart.body.confirmation_token)?.confirm_code
+    expect(registrationConfirmCode).toMatch(/^\d{6}$/)
 
     const registrationFinish = await request('/user-api/auth/registration-confirm-code-finish', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify({
         confirmation_token: registrationStart.body.confirmation_token,
-        confirm_code: '123456',
+        confirm_code: registrationConfirmCode,
       }),
     })
     expect(registrationFinish.body.access_token).toBeTruthy()

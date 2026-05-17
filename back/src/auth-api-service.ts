@@ -1,32 +1,34 @@
 import type { AuthService } from './auth-service.js'
+import type { EmailSender } from './email-sender.js'
 import type { ProfileService } from './profile-service.js'
 
 export interface AuthApiServiceDeps {
   auth: AuthService
   profile: ProfileService
+  emailSender: EmailSender
   sessionDays: number
 }
 
 export class AuthApiService {
   constructor(private readonly deps: AuthApiServiceDeps) {}
 
-  startLogin(authEmail: string) {
+  async startLogin(authEmail: string) {
     const token = this.deps.auth.createConfirmation('login', { auth_email: authEmail })
-    this.deps.auth.markConfirmationSent(token.token, true)
+    await this.sendConfirmationEmail(token.token, token.auth_email, token.confirm_code)
     return {
       confirmation_token: token.token,
       expires_at: token.expires_at,
     }
   }
 
-  startRegistration(payload: {
+  async startRegistration(payload: {
     auth_email: string
     first_name: string
     last_name?: string | null
     middle_name?: string | null
   }) {
     const token = this.deps.auth.createConfirmation('register', payload)
-    this.deps.auth.markConfirmationSent(token.token, true)
+    await this.sendConfirmationEmail(token.token, token.auth_email, token.confirm_code)
     return {
       confirmation_token: token.token,
       expires_at: token.expires_at,
@@ -84,5 +86,16 @@ export class AuthApiService {
     if (!user) return null
     const removed = this.deps.auth.revokeAllAccessTokensForUser(user.id)
     return { revoked_tokens: removed, user }
+  }
+
+  private async sendConfirmationEmail(token: string, authEmail: string, confirmCode: string): Promise<void> {
+    const subject = 'Confirmation code'
+    const htmlBody = `<p>Your confirmation code: <strong>${confirmCode}</strong></p>`
+    try {
+      const ok = await this.deps.emailSender.sendHtmlEmail([authEmail], subject, htmlBody)
+      this.deps.auth.markConfirmationSent(token, ok)
+    } catch (error) {
+      this.deps.auth.markConfirmationSent(token, false, error instanceof Error ? error.message : 'Failed to send confirmation email')
+    }
   }
 }

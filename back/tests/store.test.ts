@@ -16,7 +16,7 @@ describe('store', () => {
     const confirmation = store.auth.createConfirmation('login', { auth_email: 'demo@example.com' })
     expect(confirmation.history[0].action).toBe('create')
     expect(store.auth.markConfirmationSent(confirmation.token, true)?.sending_attempts_count).toBe(1)
-    expect(store.auth.consumeConfirmation(confirmation.token)?.confirm_code).toBe('123456')
+    expect(store.auth.consumeConfirmation(confirmation.token)?.confirm_code).toBe(confirmation.confirm_code)
     expect(store.auth.consumeConfirmation(confirmation.token)?.token).toBe(confirmation.token)
     const expiredConfirmation = store.auth.createConfirmation('login', { auth_email: 'expired@example.com' })
     store.auth.confirmationTokens.set(expiredConfirmation.token, {
@@ -51,7 +51,7 @@ describe('store', () => {
 
     const verifyToken = store.auth.createConfirmation('register', { auth_email: 'verify@example.com', first_name: 'V' })
     expect(store.auth.verifyConfirmation(verifyToken.token, 'wrong')).toEqual({ ok: false, error: 'Invalid confirmation code' })
-    expect(store.auth.verifyConfirmation(verifyToken.token, '123456')).toEqual(
+    expect(store.auth.verifyConfirmation(verifyToken.token, verifyToken.confirm_code)).toEqual(
       expect.objectContaining({ ok: true, record: expect.objectContaining({ is_verified: true }) })
     )
   })

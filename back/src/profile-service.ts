@@ -59,7 +59,7 @@ export class ProfileService {
     return this.deps.persons.restore(id)
   }
 
-  vectorSearch(query: string, limit = 10) {
+  vectorSearch(query: string, limit = 10, scoreThreshold?: number | null) {
     const normalizedQuery = query.trim().toLowerCase()
     return this.deps.persons
       .list(false)
@@ -71,7 +71,13 @@ export class ProfileService {
         const score = normalizedQuery ? this.scoreText(normalizedQuery, haystack) : 0
         return { ...person, score }
       })
-      .filter((person) => !normalizedQuery || person.score > 0)
+      .filter((person) => {
+        if (!normalizedQuery) return true
+        if (typeof scoreThreshold === 'number' && Number.isFinite(scoreThreshold)) {
+          return person.score >= scoreThreshold
+        }
+        return person.score > 0
+      })
       .sort((a, b) => b.score - a.score || a.id - b.id)
       .slice(0, Math.max(1, limit))
   }

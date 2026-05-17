@@ -11,6 +11,7 @@ import type {
 } from './types.js'
 import { AuthApiService } from './auth-api-service.js'
 import { AuthService } from './auth-service.js'
+import { NoopEmailSender, SmtpEmailSender, type EmailSender } from './email-sender.js'
 import { MemoryBlobStore, MinioBlobStore } from './blob-store.js'
 import { CollectionCrudApiService } from './crud-api-service.js'
 import { EventService } from './event-service.js'
@@ -53,6 +54,20 @@ const createBlobStore = () => {
     })
   }
   return new MemoryBlobStore()
+}
+
+const createEmailSender = (): EmailSender => {
+  const host = process.env.EMAIL_SMTP_HOST ?? ''
+  const fromEmail = process.env.EMAIL_FROM ?? ''
+  if (!host || !fromEmail) return new NoopEmailSender()
+  return new SmtpEmailSender({
+    host,
+    port: Number(process.env.EMAIL_SMTP_PORT ?? 587),
+    secure: String(process.env.EMAIL_SMTP_SECURE ?? 'false') === 'true',
+    authUser: process.env.EMAIL_SMTP_USER,
+    authPass: process.env.EMAIL_SMTP_PASSWORD,
+    fromEmail,
+  })
 }
 
 class AppStore {
@@ -149,6 +164,7 @@ class AppStore {
 
   readonly sessionDays = DEFAULT_SESSION_DAYS
   readonly fileStorage = new FileStorageService({ onChange: () => this.persist(), blobStore: createBlobStore() })
+  readonly emailSender = createEmailSender()
   readonly contactInfoApi = new CollectionCrudApiService(this.contactInfos)
   readonly phoneNumberApi = new CollectionCrudApiService(this.phoneNumbers)
   readonly emailApi = new CollectionCrudApiService(this.emails)
@@ -173,6 +189,7 @@ class AppStore {
   readonly authApiService = new AuthApiService({
     auth: this.auth,
     profile: this.profileService,
+    emailSender: this.emailSender,
     sessionDays: this.sessionDays,
   })
   readonly ws = new WebSocketService()
