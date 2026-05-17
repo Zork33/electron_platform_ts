@@ -33,6 +33,7 @@ describe('profile service', () => {
     const user = service.createUser({ person_id: person.id, auth_email: 'alex@example.com' })
     expect(service.getUser(user.id)?.auth_email).toBe('alex@example.com')
     expect(service.getCurrentUser(users.get(user.id)!).person?.person_id).toBe(person.id)
+    expect(service.ensureUserByEmail('new@example.com', { first_name: 'New' }).auth_email).toBe('new@example.com')
 
     const avatar = service.uploadAvatar(user.id, {
       originalname: 'avatar.png',

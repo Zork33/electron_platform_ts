@@ -22,6 +22,7 @@ export interface ProfileServiceDeps {
   persons: CrudCollection<Person>
   users: CrudCollection<User>
   fileStorage: FileStorageService
+  sessionTtlHours?: number
 }
 
 export class ProfileService {
@@ -98,6 +99,32 @@ export class ProfileService {
   restoreUser(id: number) {
     const restored = this.deps.users.restore(id)
     return restored ? this.serializeUser(restored) : null
+  }
+
+  ensureUserByEmail(
+    authEmail: string,
+    personData?: { first_name?: string | null; last_name?: string | null; middle_name?: string | null }
+  ): User {
+    const existing = this.deps.users.all().find((user) => user.auth_email === authEmail)
+    if (existing) return existing
+
+    const person = this.deps.persons.create({
+      first_name: personData?.first_name ?? authEmail.split('@')[0] ?? 'User',
+      last_name: personData?.last_name ?? null,
+      middle_name: personData?.middle_name ?? null,
+      birth_date: null,
+      description: null,
+    })
+
+    return this.deps.users.create({
+      person_id: person.id,
+      auth_email: authEmail,
+      has_access: true,
+      is_admin: false,
+      session_expires_at: new Date(Date.now() + (this.deps.sessionTtlHours ?? 24 * 7) * 60 * 60 * 1000).toISOString(),
+      avatar_id: null,
+      auth_telegram_id: null,
+    })
   }
 
   getCurrentUser(user: User): CurrentUserResponse {

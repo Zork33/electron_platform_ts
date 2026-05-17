@@ -118,7 +118,7 @@ function createUserApiRouter(): Router {
     if (!verification.ok) return badRequest(res, verification.error)
     const record = verification.record
 
-    const user = store.ensureUserByEmail(record.auth_email)
+    const user = store.profileService.ensureUserByEmail(record.auth_email)
     const access = store.issueAccessToken(user.id)
     res.json({
       access_token: access.token,
@@ -136,7 +136,7 @@ function createUserApiRouter(): Router {
     if (!verification.ok) return badRequest(res, verification.error)
     const record = verification.record
 
-    const user = store.ensureUserByEmail(record.auth_email, {
+    const user = store.profileService.ensureUserByEmail(record.auth_email, {
       first_name: record.first_name,
       last_name: record.last_name,
       middle_name: record.middle_name,

@@ -103,7 +103,12 @@ class AppStore {
   readonly fileApiService = new FileApiService(this.fileStorage)
   readonly objectContainer = new ObjectContainerService(this.fileStorage)
   readonly eventService = new EventService({ events: this.events, fileStorage: this.fileStorage })
-  readonly profileService = new ProfileService({ persons: this.persons, users: this.users, fileStorage: this.fileStorage })
+  readonly profileService = new ProfileService({
+    persons: this.persons,
+    users: this.users,
+    fileStorage: this.fileStorage,
+    sessionTtlHours: ACCESS_TTL_HOURS,
+  })
   readonly auth = new AuthService({
     getUserById: (userId) => this.users.get(userId),
     patchUser: (userId, patch) => {
@@ -199,26 +204,7 @@ class AppStore {
     authEmail: string,
     personData?: { first_name?: string | null; last_name?: string | null; middle_name?: string | null }
   ): User {
-    const existing = this.users.all().find((user) => user.auth_email === authEmail)
-    if (existing) return existing
-
-    const person = this.persons.create({
-      first_name: personData?.first_name ?? authEmail.split('@')[0] ?? 'User',
-      last_name: personData?.last_name ?? null,
-      middle_name: personData?.middle_name ?? null,
-      birth_date: null,
-      description: null,
-    })
-
-    return this.users.create({
-      person_id: person.id,
-      auth_email: authEmail,
-      has_access: true,
-      is_admin: false,
-      session_expires_at: hoursFromNow(ACCESS_TTL_HOURS),
-      avatar_id: null,
-      auth_telegram_id: null,
-    })
+    return this.profileService.ensureUserByEmail(authEmail, personData)
   }
 
   buildCurrentUser(user: User): import('./types.js').CurrentUserResponse {
