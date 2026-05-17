@@ -107,6 +107,11 @@ class CrudCollection<T extends { id: number; created_at: string; updated_at: str
     this.items.delete(id)
     return item
   }
+
+  clear(): void {
+    this.items.clear()
+    this.nextId = 1
+  }
 }
 
 class AppStore {
@@ -197,6 +202,26 @@ class AppStore {
   readonly sessionDays = DEFAULT_SESSION_DAYS
 
   constructor() {
+    this.reset()
+  }
+
+  reset(): void {
+    this.persons.clear()
+    this.users.clear()
+    this.contactInfos.clear()
+    this.phoneNumbers.clear()
+    this.emails.clear()
+    this.tgAccs.clear()
+    this.webLinks.clear()
+    this.events.clear()
+    this.files.clear()
+    this.fileParts.clear()
+    this.confirmationTokens.clear()
+    this.accessTokens.clear()
+    this.wsConnections.clear()
+    this.wsSockets.clear()
+    this.nextWsConnId = 1
+
     this.fileParts.set('private', { name: 'private', is_public: false })
     this.fileParts.set('public', { name: 'public', is_public: true })
 
