@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import type {
   AccessTokenRecord,
   ConfirmationTokenRecord,
@@ -17,6 +18,7 @@ import type {
 import { FileStorageService, serializeStoredFileMetadata, type StoreFileInput } from './file-storage.js'
 import { CrudCollection } from './record-collection.js'
 import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
+import { ObjectContainerService } from './object-container.js'
 
 const DEFAULT_CONFIRM_CODE = '123456'
 const DEFAULT_SESSION_DAYS = 7
@@ -91,6 +93,7 @@ class AppStore {
   }))
 
   readonly fileStorage = new FileStorageService()
+  readonly objectContainer = new ObjectContainerService(this.fileStorage)
   readonly confirmationTokens = new Map<string, ConfirmationTokenRecord>()
   readonly accessTokens = new Map<string, AccessTokenRecord>()
   readonly wsConnections = new Map<number, WsConnectionInfo>()
