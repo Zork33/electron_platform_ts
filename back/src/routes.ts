@@ -86,97 +86,58 @@ function createUserApiRouter(): Router {
   router.post('/auth/login-confirm-code-start', (req, res) => {
     const authEmail = String(req.body?.auth_email ?? '').trim()
     if (!authEmail) return badRequest(res, 'auth_email is required')
-    const token = store.createConfirmation('login', { auth_email: authEmail })
-    store.markConfirmationSent(token.token, true)
-    res.json({
-      confirmation_token: token.token,
-      expires_at: token.expires_at,
-    })
+    res.json(store.authApiService.startLogin(authEmail))
   })
 
   router.post('/auth/registration-confirm-code-start', (req, res) => {
     const authEmail = String(req.body?.auth_email ?? '').trim()
     const firstName = String(req.body?.first_name ?? '').trim()
     if (!authEmail || !firstName) return badRequest(res, 'auth_email and first_name are required')
-    const token = store.createConfirmation('register', {
+    res.json(store.authApiService.startRegistration({
       auth_email: authEmail,
       first_name: firstName,
       last_name: req.body?.last_name ? String(req.body.last_name) : null,
       middle_name: req.body?.middle_name ? String(req.body.middle_name) : null,
-    })
-    store.markConfirmationSent(token.token, true)
-    res.json({
-      confirmation_token: token.token,
-      expires_at: token.expires_at,
-    })
+    }))
   })
 
   router.post('/auth/login-confirm-code-finish', (req, res) => {
     const confirmationToken = String(req.body?.confirmation_token ?? '')
     const confirmCode = String(req.body?.confirm_code ?? '')
-    const verification = store.verifyConfirmation(confirmationToken, confirmCode)
-    if (!verification.ok) return badRequest(res, verification.error)
-    const record = verification.record
-
-    const user = store.profileService.ensureUserByEmail(record.auth_email)
-    const access = store.issueAccessToken(user.id)
-    res.json({
-      access_token: access.token,
-      expires_at: access.expires_at,
-      session_expires_days: store.sessionDays,
-      user_id: user.id,
-      person_id: user.person_id,
-    })
+    const result = store.authApiService.finishLogin(confirmationToken, confirmCode)
+    if (!result || 'ok' in result) return badRequest(res, result?.error ?? 'Invalid confirmation code')
+    res.json(result)
   })
 
   router.post('/auth/registration-confirm-code-finish', (req, res) => {
     const confirmationToken = String(req.body?.confirmation_token ?? '')
     const confirmCode = String(req.body?.confirm_code ?? '')
-    const verification = store.verifyConfirmation(confirmationToken, confirmCode)
-    if (!verification.ok) return badRequest(res, verification.error)
-    const record = verification.record
-
-    const user = store.profileService.ensureUserByEmail(record.auth_email, {
-      first_name: record.first_name,
-      last_name: record.last_name,
-      middle_name: record.middle_name,
-    })
-    const access = store.issueAccessToken(user.id)
-    res.json({
-      access_token: access.token,
-      expires_at: access.expires_at,
-      session_expires_days: store.sessionDays,
-      user_id: user.id,
-      person_id: user.person_id,
-    })
+    const result = store.authApiService.finishRegistration(confirmationToken, confirmCode)
+    if (!result || 'ok' in result) return badRequest(res, result?.error ?? 'Invalid confirmation code')
+    res.json(result)
   })
 
   router.post('/auth/access-token-refresh', (req, res) => {
     const token = authTokenFromRequest(req)
     if (!token) return unauthorized(res, 'Authorization header is required')
-    const refreshed = store.refreshAccessToken(token)
+    const refreshed = store.authApiService.refreshAccessToken(token)
     if (!refreshed) return unauthorized(res, 'Access token is invalid or expired')
-    res.json({
-      access_token: refreshed.token,
-      expires_at: refreshed.expires_at,
-      session_expires_days: store.sessionDays,
-    })
+    res.json(refreshed)
   })
 
   router.post('/auth/logout', (req, res) => {
     const token = authTokenFromRequest(req)
     if (!token) return unauthorized(res, 'Authorization header is required')
-    store.revokeAccessToken(token)
+    store.authApiService.logout(token)
     res.json({ success: true })
   })
 
   router.post('/auth/logout-all', (req, res) => {
     const token = authTokenFromRequest(req)
     if (!token) return unauthorized(res, 'Authorization header is required')
-    const user = store.getUserByAccessToken(token)
-    if (!user) return unauthorized(res, 'Access token is invalid or expired')
-    const removed = store.revokeAllAccessTokensForUser(user.id)
-    res.json({ success: true, revoked_tokens: removed })
+    const result = store.authApiService.logoutAll(token)
+    if (!result) return unauthorized(res, 'Access token is invalid or expired')
+    res.json({ success: true, revoked_tokens: result.revoked_tokens })
   })
 
   router.get('/user/current-user', (req, res) => {

@@ -15,6 +15,7 @@ import type {
   WsConnectionInfo,
 } from './types.js'
 import { AuthService } from './auth-service.js'
+import { AuthApiService } from './auth-api-service.js'
 import { CollectionCrudApiService } from './crud-api-service.js'
 import { FileApiService } from './file-api-service.js'
 import { EventService } from './event-service.js'
@@ -94,6 +95,7 @@ class AppStore {
     report_gallery_ids: [],
   }))
 
+  readonly sessionDays = DEFAULT_SESSION_DAYS
   readonly fileStorage = new FileStorageService()
   readonly contactInfoApi = new CollectionCrudApiService(this.contactInfos)
   readonly phoneNumberApi = new CollectionCrudApiService(this.phoneNumbers)
@@ -115,9 +117,12 @@ class AppStore {
       this.users.patch(userId, patch)
     },
   })
+  readonly authApiService = new AuthApiService({
+    auth: this.auth,
+    profile: this.profileService,
+    sessionDays: this.sessionDays,
+  })
   readonly ws = new WebSocketService()
-
-  readonly sessionDays = DEFAULT_SESSION_DAYS
 
   constructor() {
     this.reset()
