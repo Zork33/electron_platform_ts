@@ -14,6 +14,8 @@ describe('store', () => {
 
   test('confirmation and access token lifecycle', () => {
     const confirmation = store.createConfirmation('login', { auth_email: 'demo@example.com' })
+    expect(confirmation.history[0].action).toBe('create')
+    expect(store.markConfirmationSent(confirmation.token, true)?.sending_attempts_count).toBe(1)
     expect(store.consumeConfirmation(confirmation.token)?.confirm_code).toBe('123456')
     expect(store.consumeConfirmation(confirmation.token)?.token).toBe(confirmation.token)
     const expiredConfirmation = store.createConfirmation('login', { auth_email: 'expired@example.com' })
@@ -46,6 +48,12 @@ describe('store', () => {
     const deletedUserToken = store.issueAccessToken(user.id)
     store.users.softDelete(user.id)
     expect(store.getUserByAccessToken(deletedUserToken.token)).toBeNull()
+
+    const verifyToken = store.createConfirmation('register', { auth_email: 'verify@example.com', first_name: 'V' })
+    expect(store.verifyConfirmation(verifyToken.token, 'wrong')).toEqual({ ok: false, error: 'Invalid confirmation code' })
+    expect(store.verifyConfirmation(verifyToken.token, '123456')).toEqual(
+      expect.objectContaining({ ok: true, record: expect.objectContaining({ is_verified: true }) })
+    )
   })
 
   test('file storage lifecycle and metadata helpers', () => {

@@ -99,6 +99,20 @@ export interface ConfirmationTokenRecord {
   middle_name?: string | null
   confirm_code: string
   expires_at: string
+  is_sent: boolean
+  sending_attempts_count: number
+  sending_error: string | null
+  is_verified: boolean
+  verification_attempts_count: number
+  verification_error: string | null
+  history: ConfirmationHistoryEntry[]
+}
+
+export interface ConfirmationHistoryEntry {
+  action: 'create' | 'send' | 'verify'
+  timestamp: string
+  ok: boolean
+  error_message: string | null
 }
 
 export interface AccessTokenRecord {

@@ -144,6 +144,7 @@ function createUserApiRouter(): Router {
     const authEmail = String(req.body?.auth_email ?? '').trim()
     if (!authEmail) return badRequest(res, 'auth_email is required')
     const token = store.createConfirmation('login', { auth_email: authEmail })
+    store.markConfirmationSent(token.token, true)
     res.json({
       confirmation_token: token.token,
       expires_at: token.expires_at,
@@ -160,6 +161,7 @@ function createUserApiRouter(): Router {
       last_name: req.body?.last_name ? String(req.body.last_name) : null,
       middle_name: req.body?.middle_name ? String(req.body.middle_name) : null,
     })
+    store.markConfirmationSent(token.token, true)
     res.json({
       confirmation_token: token.token,
       expires_at: token.expires_at,
@@ -169,9 +171,9 @@ function createUserApiRouter(): Router {
   router.post('/auth/login-confirm-code-finish', (req, res) => {
     const confirmationToken = String(req.body?.confirmation_token ?? '')
     const confirmCode = String(req.body?.confirm_code ?? '')
-    const record = store.consumeConfirmation(confirmationToken)
-    if (!record) return unauthorized(res, 'Confirmation token is invalid or expired')
-    if (record.confirm_code !== confirmCode) return badRequest(res, 'Invalid confirmation code')
+    const verification = store.verifyConfirmation(confirmationToken, confirmCode)
+    if (!verification.ok) return badRequest(res, verification.error)
+    const record = verification.record
 
     const user = store.ensureUserByEmail(record.auth_email)
     const access = store.issueAccessToken(user.id)
@@ -187,9 +189,9 @@ function createUserApiRouter(): Router {
   router.post('/auth/registration-confirm-code-finish', (req, res) => {
     const confirmationToken = String(req.body?.confirmation_token ?? '')
     const confirmCode = String(req.body?.confirm_code ?? '')
-    const record = store.consumeConfirmation(confirmationToken)
-    if (!record) return unauthorized(res, 'Confirmation token is invalid or expired')
-    if (record.confirm_code !== confirmCode) return badRequest(res, 'Invalid confirmation code')
+    const verification = store.verifyConfirmation(confirmationToken, confirmCode)
+    if (!verification.ok) return badRequest(res, verification.error)
+    const record = verification.record
 
     const user = store.ensureUserByEmail(record.auth_email, {
       first_name: record.first_name,

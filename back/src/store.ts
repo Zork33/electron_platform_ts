@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import type {
   AccessTokenRecord,
   ConfirmationTokenRecord,
+  ConfirmationHistoryEntry,
   ContactInfo,
   Email,
   FilePart,
@@ -268,12 +269,44 @@ class AppStore {
       middle_name: payload.middle_name ?? null,
       confirm_code: DEFAULT_CONFIRM_CODE,
       expires_at: minutesFromNow(CONFIRM_TTL_MINUTES),
+      is_sent: false,
+      sending_attempts_count: 0,
+      sending_error: null,
+      is_verified: false,
+      verification_attempts_count: 0,
+      verification_error: null,
+      history: [
+        {
+          action: 'create',
+          timestamp: nowIso(),
+          ok: true,
+          error_message: null,
+        },
+      ],
     }
     this.confirmationTokens.set(token, record)
     return record
   }
 
-  consumeConfirmation(token: string): ConfirmationTokenRecord | null {
+  private appendConfirmationHistory(
+    record: ConfirmationTokenRecord,
+    action: ConfirmationHistoryEntry['action'],
+    ok: boolean,
+    error_message: string | null = null
+  ): ConfirmationTokenRecord {
+    record.history = [
+      ...record.history,
+      {
+        action,
+        timestamp: nowIso(),
+        ok,
+        error_message,
+      },
+    ]
+    return record
+  }
+
+  getConfirmation(token: string): ConfirmationTokenRecord | null {
     const record = this.confirmationTokens.get(token)
     if (!record) return null
     if (new Date(record.expires_at).getTime() <= Date.now()) {
@@ -281,6 +314,39 @@ class AppStore {
       return null
     }
     return record
+  }
+
+  consumeConfirmation(token: string): ConfirmationTokenRecord | null {
+    return this.getConfirmation(token)
+  }
+
+  markConfirmationSent(token: string, ok: boolean, error_message: string | null = null): ConfirmationTokenRecord | null {
+    const record = this.getConfirmation(token)
+    if (!record) return null
+    record.is_sent = ok
+    record.sending_attempts_count += 1
+    record.sending_error = error_message
+    return this.appendConfirmationHistory(record, 'send', ok, error_message)
+  }
+
+  verifyConfirmation(token: string, receivedCode: string): { ok: true; record: ConfirmationTokenRecord } | { ok: false; error: string } {
+    const record = this.getConfirmation(token)
+    if (!record) {
+      return { ok: false, error: 'Confirmation token is invalid or expired' }
+    }
+
+    record.verification_attempts_count += 1
+    if (record.confirm_code !== receivedCode.trim()) {
+      record.is_verified = false
+      record.verification_error = 'Invalid confirmation code'
+      this.appendConfirmationHistory(record, 'verify', false, record.verification_error)
+      return { ok: false, error: record.verification_error }
+    }
+
+    record.is_verified = true
+    record.verification_error = null
+    this.appendConfirmationHistory(record, 'verify', true, null)
+    return { ok: true, record }
   }
 
   issueAccessToken(userId: number): AccessTokenRecord {
