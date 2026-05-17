@@ -426,7 +426,7 @@ describe('http api', () => {
     })
     expect(unauthorized.readyState === WebSocket.CLOSED).toBe(true)
 
-    const token = store.accessTokens.keys().next().value as string
+    const token = store.auth.accessTokens.keys().next().value as string
     const socket = new WebSocket(`${server?.wsUrl ?? ''}?token=${token}`)
     currentSocket = socket
     const messages: string[] = []
@@ -446,7 +446,7 @@ describe('http api', () => {
     socket.send('not-json')
     socket.send(JSON.stringify({ type: 'pong' }))
     await new Promise((resolve) => setTimeout(resolve, 25))
-    expect(store.listWsConnections()[0].last_pong_at).toBeTruthy()
+    expect(store.ws.listConnections()[0].last_pong_at).toBeTruthy()
 
     const sendAll = await request('/dev-api/web-socket/send-all', {
       method: 'POST',
@@ -462,7 +462,7 @@ describe('http api', () => {
     })
     expect(sendUser.body.success).toBe(true)
 
-    const connId = store.listWsConnections()[0].conn_id
+    const connId = store.ws.listConnections()[0].conn_id
     const sendConnection = await request(`/dev-api/web-socket/send-connection/${connId}`, {
       method: 'POST',
       headers: jsonHeaders,
@@ -482,6 +482,6 @@ describe('http api', () => {
     })
     currentSocket = null
     await new Promise((resolve) => setTimeout(resolve, 25))
-    expect(store.listWsConnections()).toHaveLength(0)
+    expect(store.ws.listConnections()).toHaveLength(0)
   })
 })

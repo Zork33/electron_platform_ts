@@ -1,10 +1,6 @@
-import crypto from 'node:crypto'
 import type {
-  AccessTokenRecord,
-  ConfirmationTokenRecord,
   ContactInfo,
   Email,
-  FilePart,
   LoungeEvent,
   Person,
   PhoneNumber,
@@ -12,19 +8,19 @@ import type {
   TgAcc,
   User,
   WebLink,
-  WsConnectionInfo,
 } from './types.js'
 import { AuthService } from './auth-service.js'
 import { AuthApiService } from './auth-api-service.js'
 import { CollectionCrudApiService } from './crud-api-service.js'
 import { FileApiService } from './file-api-service.js'
 import { EventService } from './event-service.js'
-import { FileStorageService, serializeStoredFileMetadata, type StoreFileInput } from './file-storage.js'
+import { FileStorageService, serializeStoredFileMetadata } from './file-storage.js'
 import { CrudCollection } from './record-collection.js'
 import { ProfileService } from './profile-service.js'
-import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
+import { hoursFromNow } from './time.js'
 import { ObjectContainerService } from './object-container.js'
 import { WebSocketService } from './ws-service.js'
+
 const DEFAULT_SESSION_DAYS = 7
 const ACCESS_TTL_HOURS = 24 * DEFAULT_SESSION_DAYS
 
@@ -157,107 +153,7 @@ class AppStore {
       avatar_id: null,
       auth_telegram_id: null,
     })
-    this.issueAccessToken(user.id)
-  }
-
-  createConfirmation(kind: 'login' | 'register', payload: {
-    auth_email: string
-    first_name?: string | null
-    last_name?: string | null
-    middle_name?: string | null
-  }): ConfirmationTokenRecord {
-    return this.auth.createConfirmation(kind, payload)
-  }
-
-  getConfirmation(token: string): ConfirmationTokenRecord | null {
-    return this.auth.getConfirmation(token)
-  }
-
-  consumeConfirmation(token: string): ConfirmationTokenRecord | null {
-    return this.auth.consumeConfirmation(token)
-  }
-
-  markConfirmationSent(token: string, ok: boolean, error_message: string | null = null): ConfirmationTokenRecord | null {
-    return this.auth.markConfirmationSent(token, ok, error_message)
-  }
-
-  verifyConfirmation(token: string, receivedCode: string): { ok: true; record: ConfirmationTokenRecord } | { ok: false; error: string } {
-    return this.auth.verifyConfirmation(token, receivedCode)
-  }
-
-  issueAccessToken(userId: number): AccessTokenRecord {
-    return this.auth.issueAccessToken(userId)
-  }
-
-  refreshAccessToken(oldToken: string): AccessTokenRecord | null {
-    return this.auth.refreshAccessToken(oldToken)
-  }
-
-  revokeAccessToken(token: string): boolean {
-    return this.auth.revokeAccessToken(token)
-  }
-
-  revokeAllAccessTokensForUser(userId: number): number {
-    return this.auth.revokeAllAccessTokensForUser(userId)
-  }
-
-  getUserByAccessToken(token: string): User | null {
-    return this.auth.getUserByAccessToken(token)
-  }
-
-  ensureUserByEmail(
-    authEmail: string,
-    personData?: { first_name?: string | null; last_name?: string | null; middle_name?: string | null }
-  ): User {
-    return this.profileService.ensureUserByEmail(authEmail, personData)
-  }
-
-  buildCurrentUser(user: User): import('./types.js').CurrentUserResponse {
-    return this.profileService.getCurrentUser(user)
-  }
-
-  serializeUser(user: User): User & { avatar: ReturnType<typeof toFileMetadata> } {
-    return this.profileService.serializeUser(user)
-  }
-
-  storeFile(input: StoreFileInput): StoredFileRecord {
-    return this.fileStorage.storeFile(input)
-  }
-
-  getFileByPath(storagePartName: string, path: string): StoredFileRecord | null {
-    return this.fileStorage.getFileByPath(storagePartName, path)
-  }
-
-  getFileById(id: number): StoredFileRecord | null {
-    return this.fileStorage.getFileById(id)
-  }
-
-  deleteFileByPath(storagePartName: string, path: string): StoredFileRecord | null {
-    return this.fileStorage.deleteFileByPath(storagePartName, path)
-  }
-
-  deleteFileById(id: number, hard = false): StoredFileRecord | null {
-    return this.fileStorage.deleteFileById(id, hard)
-  }
-
-  listWsConnections(): WsConnectionInfo[] {
-    return this.ws.listConnections()
-  }
-
-  registerWsConnection(meta: {
-    userId: number
-    clientIp: string | null
-    userAgent: string | null
-  }): number {
-    return this.ws.registerConnection(meta)
-  }
-
-  updateWsConnection(connId: number, patch: Partial<WsConnectionInfo>): void {
-    this.ws.updateConnection(connId, patch)
-  }
-
-  removeWsConnection(connId: number): void {
-    this.ws.removeConnection(connId)
+    this.auth.issueAccessToken(user.id)
   }
 
   seedDemoData() {
@@ -299,42 +195,6 @@ class AppStore {
       ends_at: null,
       report_gallery_ids: [],
     })
-  }
-
-  getPartNames(): string[] {
-    return this.fileStorage.getPartNames()
-  }
-
-  getPart(name: string): FilePart | null {
-    return this.fileStorage.getPart(name)
-  }
-
-  setPart(name: string, isPublic: boolean): FilePart {
-    return this.fileStorage.setPart(name, isPublic)
-  }
-
-  deletePart(name: string): FilePart | null {
-    return this.fileStorage.deletePart(name)
-  }
-
-  getDefaultImage(): Buffer {
-    return this.fileStorage.getDefaultImage()
-  }
-
-  get confirmationTokens() {
-    return this.auth.confirmationTokens
-  }
-
-  get accessTokens() {
-    return this.auth.accessTokens
-  }
-
-  get wsConnections() {
-    return this.ws.connections
-  }
-
-  get wsSockets() {
-    return this.ws.sockets
   }
 }
 

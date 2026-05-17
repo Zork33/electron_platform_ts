@@ -475,7 +475,7 @@ function createDevApiRouter(wsApi: {
   })
 
   router.get('/web-socket/pool', (_req, res) => {
-    const connections = store.listWsConnections()
+    const connections = store.ws.listConnections()
     res.json({
       total_users: new Set(connections.map((c) => c.user_id)).size,
       total_connections: connections.length,
