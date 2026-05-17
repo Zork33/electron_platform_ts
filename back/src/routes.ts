@@ -2,7 +2,7 @@ import type { Request, Response, Router } from 'express'
 import { Router as createRouter } from 'express'
 import multer from 'multer'
 import { store } from './store.js'
-import type { BaseRecord, StoredFileMetadata } from './types.js'
+import type { BaseRecord } from './types.js'
 
 const upload = multer({ storage: multer.memoryStorage() })
 
@@ -63,27 +63,6 @@ const serializeUserResponse = (user: ReturnType<typeof store.users.get>) => {
   return store.serializeUser(user)
 }
 
-const serializeEventResponse = (event: ReturnType<typeof store.events.get>) => {
-  if (!event) return null
-  return {
-    ...event,
-    report_gallery: event.report_gallery_ids
-      .map((id) => store.fileStorage.getFileById(id))
-      .filter((file): file is NonNullable<ReturnType<typeof store.fileStorage.getFileById>> => Boolean(file))
-      .map((file) => ({
-        id: file.id,
-        file_storage_part_id: file.file_storage_part_id,
-        path: file.path,
-        filename: file.filename,
-        ext: file.ext,
-        size_bytes: file.size_bytes,
-        created_at: file.created_at,
-        updated_at: file.updated_at,
-        deleted_at: file.deleted_at,
-      })),
-  }
-}
-
 function createCrudRouter<T extends BaseRecord>(collection: {
   list: (includeDeleted?: boolean) => T[]
   get: (id: number) => T | null
@@ -128,13 +107,6 @@ function createCrudRouter<T extends BaseRecord>(collection: {
   })
 
   return router
-}
-
-function fileMetadataResponse(file: StoredFileMetadata) {
-  return {
-    success: true,
-    metadata: file,
-  }
 }
 
 function createUserApiRouter(): Router {
@@ -348,95 +320,58 @@ function createUserApiRouter(): Router {
 
   router.get('/event', (req, res) => {
     const includeDeleted = parseIncludeDeleted(req.query.include_deleted)
-    res.json(store.events.list(includeDeleted).map((event) => serializeEventResponse(event)))
+    res.json(store.eventService.listEvents(includeDeleted))
   })
 
   router.get('/event/:id', (req, res) => {
-    const event = store.events.get(toNumber(req.params.id))
+    const event = store.eventService.getEvent(toNumber(req.params.id))
     if (!event) return notFound(res, 'Event not found')
-    res.json(serializeEventResponse(event))
+    res.json(event)
   })
 
   router.post('/event', (req, res) => {
-    const created = store.events.create({
-      ...(req.body ?? {}),
-      report_gallery_ids: [],
-    })
-    res.json(serializeEventResponse(created))
+    res.json(store.eventService.createEvent(req.body ?? {}))
   })
 
   router.put('/event/:id', (req, res) => {
-    const updated = store.events.patch(toNumber(req.params.id), req.body ?? {})
+    const updated = store.eventService.updateEvent(toNumber(req.params.id), req.body ?? {})
     if (!updated) return notFound(res, 'Event not found')
-    res.json(serializeEventResponse(updated))
+    res.json(updated)
   })
 
   router.delete('/event/:id', (req, res) => {
-    const deleted = store.events.softDelete(toNumber(req.params.id))
+    const deleted = store.eventService.deleteEvent(toNumber(req.params.id))
     if (!deleted) return notFound(res, 'Event not found')
-    res.json(serializeEventResponse(deleted))
+    res.json(deleted)
   })
 
   router.post('/event/:eventId/report_gallery/upload', upload.single('file'), (req, res) => {
-    const event = store.events.get(toNumber(req.params.eventId))
-    if (!event) return notFound(res, 'Event not found')
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const stored = store.fileStorage.storeFile({
-      storagePartName: 'event-gallery',
-      path: `events/${event.id}/gallery/${file.originalname}`,
-      filename: file.originalname,
-      ext: file.originalname.includes('.') ? file.originalname.split('.').pop() ?? '' : '',
-      content: file.buffer,
-      contentType: file.mimetype,
-    })
-    const nextIds = [...event.report_gallery_ids, stored.id]
-    store.events.patch(event.id, { report_gallery_ids: nextIds })
-    const serialized = serializeEventResponse(store.events.get(event.id))
-    res.json({ success: true, metadata: serialized?.report_gallery.at(-1) ?? null })
+    const metadata = store.eventService.addGalleryFile(toNumber(req.params.eventId), file)
+    if (!metadata) return notFound(res, 'Event not found')
+    res.json({ success: true, metadata: metadata.report_gallery.at(-1) ?? null })
   })
 
   router.delete('/event/:eventId/report_gallery/:storedFileId', (req, res) => {
-    const event = store.events.get(toNumber(req.params.eventId))
-    if (!event) return notFound(res, 'Event not found')
-    const storedFileId = toNumber(req.params.storedFileId)
-    const nextIds = event.report_gallery_ids.filter((id) => id !== storedFileId)
-    store.events.patch(event.id, { report_gallery_ids: nextIds })
+    const ok = store.eventService.removeGalleryFile(toNumber(req.params.eventId), toNumber(req.params.storedFileId))
+    if (!ok) return notFound(res, 'Event not found')
     res.status(204).send()
   })
 
   router.put('/event/:eventId/report_gallery/reorder', (req, res) => {
-    const event = store.events.get(toNumber(req.params.eventId))
-    if (!event) return notFound(res, 'Event not found')
     const orderedIds = Array.isArray(req.body?.ordered_ids) ? req.body.ordered_ids.map((id: unknown) => toNumber(id)) : []
-    store.events.patch(event.id, { report_gallery_ids: orderedIds })
+    const ok = store.eventService.reorderGallery(toNumber(req.params.eventId), orderedIds)
+    if (!ok) return notFound(res, 'Event not found')
     res.status(204).send()
   })
 
   router.patch('/event/:eventId/report_gallery/:storedFileId/rename', (req, res) => {
-    const event = store.events.get(toNumber(req.params.eventId))
-    if (!event) return notFound(res, 'Event not found')
-    const storedFileId = toNumber(req.params.storedFileId)
-    const file = store.fileStorage.getFileById(storedFileId)
-    if (!file) return notFound(res, 'File not found')
     const filename = String(req.body?.filename ?? '').trim()
     if (!filename) return badRequest(res, 'filename is required')
-    const updated = store.fileStorage.renameFile(file.id, filename)
-    if (!updated) return notFound(res, 'File not found')
-    res.json({
-      success: true,
-      metadata: {
-        id: updated.id,
-        file_storage_part_id: updated.file_storage_part_id,
-        path: updated.path,
-        filename: updated.filename,
-        ext: updated.ext,
-        size_bytes: updated.size_bytes,
-        created_at: updated.created_at,
-        updated_at: updated.updated_at,
-        deleted_at: updated.deleted_at,
-      },
-    })
+    const metadata = store.eventService.renameGalleryFile(toNumber(req.params.storedFileId), filename)
+    if (!metadata) return notFound(res, 'File not found')
+    res.json({ success: true, metadata })
   })
 
   router.post('/user/:id/avatar/upload', upload.single('file'), (req, res) => {
