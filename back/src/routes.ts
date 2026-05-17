@@ -185,11 +185,11 @@ function createUserApiRouter(): Router {
     res.json(store.buildCurrentUser(user))
   })
 
-  router.use('/contact-info', createCrudRouter(store.contactInfos))
-  router.use('/phone-number', createCrudRouter(store.phoneNumbers))
-  router.use('/email', createCrudRouter(store.emails))
-  router.use('/tg-acc', createCrudRouter(store.tgAccs))
-  router.use('/web-link', createCrudRouter(store.webLinks))
+  router.use('/contact-info', createCrudRouter(store.contactInfoApi))
+  router.use('/phone-number', createCrudRouter(store.phoneNumberApi))
+  router.use('/email', createCrudRouter(store.emailApi))
+  router.use('/tg-acc', createCrudRouter(store.tgAccApi))
+  router.use('/web-link', createCrudRouter(store.webLinkApi))
 
   router.get('/person', (req, res) => {
     const includeDeleted = parseIncludeDeleted(req.query.include_deleted)

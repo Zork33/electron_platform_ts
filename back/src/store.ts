@@ -15,6 +15,7 @@ import type {
   WsConnectionInfo,
 } from './types.js'
 import { AuthService } from './auth-service.js'
+import { CollectionCrudApiService } from './crud-api-service.js'
 import { FileApiService } from './file-api-service.js'
 import { EventService } from './event-service.js'
 import { FileStorageService, serializeStoredFileMetadata, type StoreFileInput } from './file-storage.js'
@@ -94,6 +95,11 @@ class AppStore {
   }))
 
   readonly fileStorage = new FileStorageService()
+  readonly contactInfoApi = new CollectionCrudApiService(this.contactInfos)
+  readonly phoneNumberApi = new CollectionCrudApiService(this.phoneNumbers)
+  readonly emailApi = new CollectionCrudApiService(this.emails)
+  readonly tgAccApi = new CollectionCrudApiService(this.tgAccs)
+  readonly webLinkApi = new CollectionCrudApiService(this.webLinks)
   readonly fileApiService = new FileApiService(this.fileStorage)
   readonly objectContainer = new ObjectContainerService(this.fileStorage)
   readonly eventService = new EventService({ events: this.events, fileStorage: this.fileStorage })
