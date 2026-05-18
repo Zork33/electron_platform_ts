@@ -63,4 +63,15 @@ describe('file storage service', () => {
     expect(replaced.size_bytes).toBe(3)
     expect(storage.getFileByPath('public', 'docs/readme.txt')?.etag).toBe(replaced.etag)
   })
+
+  test('hydrates missing system parts', async () => {
+    const storage = new FileStorageService()
+    await storage.hydrate({
+      fileParts: [{ name: 'private', is_public: false }],
+      files: [],
+    })
+
+    expect(storage.getPartNames()).toEqual(['private', 'public', 'trash'])
+    expect(storage.getPart('trash')?.is_public).toBe(false)
+  })
 })

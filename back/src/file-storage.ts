@@ -52,9 +52,7 @@ export class FileStorageService {
   reset(): void {
     this.files.clear()
     this.fileParts.clear()
-    this.fileParts.set('private', { name: 'private', is_public: false })
-    this.fileParts.set('public', { name: 'public', is_public: true })
-    this.fileParts.set('trash', { name: 'trash', is_public: false })
+    this.ensureSystemParts()
     this.deps.onChange?.()
   }
 
@@ -192,6 +190,20 @@ export class FileStorageService {
     return created
   }
 
+  ensureSystemParts(): void {
+    const systemParts: FilePart[] = [
+      { name: 'private', is_public: false },
+      { name: 'public', is_public: true },
+      { name: 'trash', is_public: false },
+    ]
+    for (const part of systemParts) {
+      const current = this.fileParts.get(part.name)
+      if (!current || current.is_public !== part.is_public) {
+        this.fileParts.set(part.name, { ...part })
+      }
+    }
+  }
+
   moveFileToTrash(id: number): StoredFileRecord | null {
     const file = this.files.get(id)
     if (!file || file.deleted_at !== null) return null
@@ -250,6 +262,7 @@ export class FileStorageService {
     for (const part of snapshot.fileParts) {
       this.fileParts.set(part.name, { ...part })
     }
+    this.ensureSystemParts()
     const files = await Promise.all(
       snapshot.files.map(async (file) => {
         const blobContent = await this.deps.blobStore?.get(file.object_key)
