@@ -119,7 +119,10 @@ describe('http api', () => {
       },
     })
     expect(refresh.response.ok).toBe(true)
-    expect(refresh.body.access_token).toBeTruthy()
+    expect(refresh.body).toEqual({
+      access_token: expect.any(String),
+      expires_at: expect.any(String),
+    })
 
     const logout = await request('/user-api/auth/logout', {
       method: 'POST',
