@@ -159,11 +159,12 @@ export class FileApiService {
     filename = file.originalname,
     ext = filename.includes('.') ? filename.split('.').pop() ?? '' : ''
   ): StoreFileInput {
+    const normalizedExt = ext.trim().toLowerCase().replace(/^\./, '')
     return {
       storagePartName,
       path,
       filename,
-      ext,
+      ext: normalizedExt,
       content: file.buffer,
       contentType: file.mimetype,
       replaceExisting,

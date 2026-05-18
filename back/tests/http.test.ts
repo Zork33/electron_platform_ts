@@ -555,10 +555,11 @@ describe('http api', () => {
         storage_part_name: 'private',
         path: 'managed/file.txt',
         filename: 'file.txt',
-        ext: 'txt',
+        ext: '.TXT',
       }),
     })
     expect(fileManagerUpload.body.metadata.filename).toBe('file.txt')
+    expect(fileManagerUpload.body.metadata.ext).toBe('txt')
 
     const fileManagerUploadReplace = await request('/user-api/file-manager/upload', {
       method: 'POST',
