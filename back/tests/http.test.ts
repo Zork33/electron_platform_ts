@@ -564,6 +564,13 @@ describe('http api', () => {
     const fileManagerGet = await request(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}`)
     expect(fileManagerGet.body.metadata.id).toBe(fileManagerUpload.body.metadata.id)
 
+    const missingReplaceFile = await request(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}/replace`, {
+      method: 'PUT',
+      body: formData({}),
+    })
+    expect(missingReplaceFile.response.status).toBe(422)
+    expect(missingReplaceFile.body.detail.error_message).toBe('file is required')
+
     const fileManagerReplace = await request(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}/replace`, {
       method: 'PUT',
       body: formData({

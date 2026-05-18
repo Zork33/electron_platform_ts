@@ -532,7 +532,7 @@ function createUserApiRouter(): Router {
 
   router.put('/file-manager/:id/replace', upload.single('file'), (req, res) => {
     const file = req.file
-    if (!file) return badRequest(res, 'file is required')
+    if (!file) return validationError(res, 'file is required', 'VALIDATION_ERROR')
     const result = store.fileApiService.replaceManagedFile(toNumber(req.params.id), file)
     if (!result) return notFound(res, 'File not found')
     res.json({ success: true, ...result })
