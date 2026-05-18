@@ -26,6 +26,15 @@ const authTokenFromRequest = (req: Request): string | null => {
   return header.startsWith('Bearer ') ? header.slice('Bearer '.length) : null
 }
 
+const buildDownloadFilename = (filename: string, ext: string): { asciiFilename: string; encodedFilename: string } => {
+  const downloadFilename = `${filename}.${ext}`
+  const asciiFilename = /^[\x00-\x7F]+$/.test(downloadFilename) ? downloadFilename : `download.${ext}`
+  return {
+    asciiFilename,
+    encodedFilename: encodeURIComponent(downloadFilename),
+  }
+}
+
 const withCurrentUser = (req: Request) => {
   const token = authTokenFromRequest(req)
   if (!token) return null
@@ -440,9 +449,16 @@ function createUserApiRouter(): Router {
   })
 
   router.get('/file-manager/:id/download', (req, res) => {
+    const metadata = store.fileApiService.getManagedFile(toNumber(req.params.id))
+    if (!metadata) return notFound(res, 'File not found')
     const file = store.fileApiService.downloadManagedFile(toNumber(req.params.id))
-    if (!file) return notFound(res, 'File not found')
+    if (!file) return notFound(res, 'File not found in storage')
+    const downloadFilename = buildDownloadFilename(metadata.metadata.filename, metadata.metadata.ext)
     res.setHeader('Content-Type', file.contentType)
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${downloadFilename.asciiFilename}"; filename*=UTF-8''${downloadFilename.encodedFilename}`
+    )
     res.send(file.content)
   })
 

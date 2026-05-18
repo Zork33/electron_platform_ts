@@ -320,6 +320,9 @@ describe('http api', () => {
 
     const fileManagerDownload = await fetch(`${server.baseUrl}/user-api/file-manager/${fileManagerUpload.body.metadata.id}/download`)
     expect(Buffer.from(await fileManagerDownload.arrayBuffer()).toString()).toBe('managed file 2')
+    const expectedDownloadName = `${fileManagerReplace.body.metadata.filename}.${fileManagerReplace.body.metadata.ext}`
+    expect(fileManagerDownload.headers.get('content-disposition')).toContain('attachment;')
+    expect(fileManagerDownload.headers.get('content-disposition')).toContain(`filename="${expectedDownloadName}"`)
 
     const fileManagerUrl = await request(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}/url?expires_in=123`)
     expect(fileManagerUrl.body.url).toContain(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}/download`)
