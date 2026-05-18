@@ -47,19 +47,27 @@ export class ProfileService {
   }
 
   createPerson(data: Partial<Person>) {
-    return this.deps.persons.create(data)
+    const created = this.deps.persons.create({
+      ...data,
+      vector_db_record_id: null,
+      is_vector_synced: false,
+    })
+    return this.syncPersonVectorState(created.id, true)
   }
 
   updatePerson(id: number, data: Partial<Person>) {
-    return this.deps.persons.patch(id, data)
+    const updated = this.deps.persons.patch(id, data)
+    return updated ? this.syncPersonVectorState(id, true) : null
   }
 
   deletePerson(id: number) {
-    return this.deps.persons.softDelete(id)
+    const deleted = this.deps.persons.softDelete(id)
+    return deleted ? this.syncPersonVectorState(id, false) : null
   }
 
   restorePerson(id: number) {
-    return this.deps.persons.restore(id)
+    const restored = this.deps.persons.restore(id)
+    return restored ? this.syncPersonVectorState(id, true) : null
   }
 
   vectorSearch(query: string, limit = 10, scoreThreshold?: number | null) {
@@ -229,6 +237,16 @@ export class ProfileService {
           deleted_at: file.deleted_at,
         }
       : null
+  }
+
+  private syncPersonVectorState(personId: number, isVectorSynced: boolean) {
+    const current = this.deps.persons.get(personId)
+    if (!current) return null
+    const updated = this.deps.persons.patch(personId, {
+      vector_db_record_id: current.vector_db_record_id ?? personId,
+      is_vector_synced: isVectorSynced,
+    })
+    return updated ?? current
   }
 
   private applyPersonFilters(persons: Person[], rawFilters: unknown) {

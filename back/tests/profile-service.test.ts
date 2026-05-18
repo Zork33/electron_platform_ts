@@ -33,6 +33,8 @@ describe('profile service', () => {
     const person = service.createPerson({ first_name: 'Alex', last_name: 'Smith' })
     expect(service.getPerson(person.id)?.first_name).toBe('Alex')
     expect(service.getPerson(person.id)?.gender_id).toBeNull()
+    expect(service.getPerson(person.id)?.vector_db_record_id).toBe(person.id)
+    expect(service.getPerson(person.id)?.is_vector_synced).toBe(true)
     expect(service.vectorSearch('alex', 10, 0)[0].id).toBe(person.id)
 
     const user = service.createUser({ person_id: person.id, auth_email: 'alex@example.com' })
@@ -57,10 +59,12 @@ describe('profile service', () => {
     })
     expect(replaced?.avatar?.id).toBe(avatar?.avatar?.id)
     expect(replaced?.avatar?.filename).toBe('avatar_1')
+    expect(service.updatePerson(person.id, { description: 'updated person' })?.is_vector_synced).toBe(true)
     expect(service.clearAvatar(user.id)?.avatar).toBeNull()
     expect(fileStorage.getFileById(avatar!.avatar!.id)?.deleted_at).not.toBeNull()
+    expect(service.deletePerson(person.id)?.is_vector_synced).toBe(false)
+    expect(service.restorePerson(person.id)?.is_vector_synced).toBe(true)
     expect(service.deleteUser(user.id)?.deleted_at).not.toBeNull()
-    expect(service.deletePerson(person.id)?.deleted_at).not.toBeNull()
   })
 
   test('rejects unsupported avatar input', () => {
