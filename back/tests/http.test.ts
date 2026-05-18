@@ -163,6 +163,27 @@ describe('http api', () => {
     expect(logoutAll.body.revoked_tokens).toBeGreaterThanOrEqual(1)
   })
 
+  test('auth start endpoints map python status codes', async () => {
+    const missingLogin = await request('/user-api/auth/login-confirm-code-start', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ auth_email: 'missing@example.com' }),
+    })
+    expect(missingLogin.response.status).toBe(404)
+    expect(missingLogin.body.detail.error_code).toBe('NOT_FOUND')
+
+    const existingRegistrationUser = await request('/user-api/auth/registration-confirm-code-start', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        auth_email: 'demo@example.com',
+        first_name: 'Demo',
+      }),
+    })
+    expect(existingRegistrationUser.response.status).toBe(409)
+    expect(existingRegistrationUser.body.detail.error_code).toBe('RESOURCE_CONFLICT')
+  })
+
   test('crud, files and object container routes', async () => {
     const personCreate = await request('/user-api/person', {
       method: 'POST',

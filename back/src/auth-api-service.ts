@@ -15,7 +15,7 @@ export interface AuthApiServiceDeps {
 
 type StartAuthResult =
   | { ok: true; confirmation_token: string; expires_at: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; status: number }
 
 export class AuthApiService {
   constructor(private readonly deps: AuthApiServiceDeps) {}
@@ -23,7 +23,7 @@ export class AuthApiService {
   async startLogin(authEmail: string): Promise<StartAuthResult> {
     const normalizedAuthEmail = authEmail.trim().toLowerCase()
     const existingUser = this.deps.profile.findUserByEmail(normalizedAuthEmail)
-    if (!existingUser) return { ok: false, error: 'User not found' }
+    if (!existingUser) return { ok: false, error: 'User not found', status: 404 }
     const token = this.deps.auth.createConfirmation('login', { auth_email: normalizedAuthEmail })
     await this.sendConfirmationEmail(token.token, token.kind, token.auth_email, token.confirm_code)
     await this.sendConfirmationTelegram(token.token, token.auth_email, token.confirm_code)
@@ -42,7 +42,7 @@ export class AuthApiService {
     }): Promise<StartAuthResult> {
     const normalizedAuthEmail = payload.auth_email.trim().toLowerCase()
     const existingUser = this.deps.profile.findUserByEmail(normalizedAuthEmail)
-    if (existingUser) return { ok: false, error: 'User already exists' }
+    if (existingUser) return { ok: false, error: 'User already exists', status: 409 }
     const token = this.deps.auth.createConfirmation('register', {
       ...payload,
       auth_email: normalizedAuthEmail,

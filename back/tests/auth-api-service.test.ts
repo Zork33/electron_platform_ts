@@ -66,11 +66,11 @@ describe('auth api service', () => {
       avatar_id: null,
       auth_telegram_id: '123456789',
     })
-    expect(await service.startLogin('missing@example.com')).toEqual({ ok: false, error: 'User not found' })
+    expect(await service.startLogin('missing@example.com')).toEqual({ ok: false, error: 'User not found', status: 404 })
     expect(await service.startRegistration({
       auth_email: 'demo@example.com',
       first_name: 'Demo',
-    })).toEqual({ ok: false, error: 'User already exists' })
+    })).toEqual({ ok: false, error: 'User already exists', status: 409 })
     const start = await service.startLogin('demo@example.com')
     expect(start.ok).toBe(true)
     if (!start.ok) throw new Error(start.error)
