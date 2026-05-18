@@ -12,8 +12,6 @@ import type {
 import { Pool } from 'pg'
 import { AuthApiService } from './auth-api-service.js'
 import { AuthService } from './auth-service.js'
-import { NoopEmailSender, SmtpEmailSender, type EmailSender } from './email-sender.js'
-import { MemoryBlobStore, MinioBlobStore } from './blob-store.js'
 import { CollectionCrudApiService } from './crud-api-service.js'
 import { EventService } from './event-service.js'
 import { FileApiService } from './file-api-service.js'
@@ -26,7 +24,7 @@ import { CrudCollection } from './record-collection.js'
 import { hoursFromNow } from './time.js'
 import { ObjectContainerService } from './object-container.js'
 import { ProfileService } from './profile-service.js'
-import { NoopTelegramNotifier, TelegramBotApiNotifier, type TelegramNotifier } from './telegram-notifier.js'
+import { createBackendToolkit } from './backend-toolkit.js'
 import { ConfirmCodeSettingsService } from './confirm-code-settings.js'
 import { WebSocketService } from './logic/process/web_socket/pool.js'
 
@@ -95,43 +93,6 @@ const createConfirmationSync = (): ConfirmationTokenSync | null => {
   })
 }
 
-const createBlobStore = () => {
-  if (process.env.FILE_STORAGE_HOST) {
-    return new MinioBlobStore({
-      endPoint: process.env.FILE_STORAGE_HOST,
-      port: Number(process.env.FILE_STORAGE_PORT ?? 9000),
-      useSSL: String(process.env.FILE_STORAGE_USE_SSL ?? 'false') === 'true',
-      accessKey: process.env.FILE_STORAGE_CLIENT_LOGIN ?? 'admin',
-      secretKey: process.env.FILE_STORAGE_CLIENT_PASSWORD ?? 'FilestoragePass123',
-      bucketName: process.env.FILE_STORAGE_BUCKET_NAME ?? 'electron-platform-files',
-    })
-  }
-  return new MemoryBlobStore()
-}
-
-const createEmailSender = (): EmailSender => {
-  const host = process.env.EMAIL_SMTP_HOST ?? ''
-  const fromEmail = process.env.EMAIL_FROM ?? ''
-  if (!host || !fromEmail) return new NoopEmailSender()
-  return new SmtpEmailSender({
-    host,
-    port: Number(process.env.EMAIL_SMTP_PORT ?? 587),
-    secure: String(process.env.EMAIL_SMTP_SECURE ?? 'false') === 'true',
-    authUser: process.env.EMAIL_SMTP_USER,
-    authPass: process.env.EMAIL_SMTP_PASSWORD,
-    fromEmail,
-  })
-}
-
-const createTelegramNotifier = (): TelegramNotifier => {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN ?? ''
-  if (!botToken) return new NoopTelegramNotifier()
-  return new TelegramBotApiNotifier({
-    botToken,
-    apiUrl: process.env.TELEGRAM_API_URL,
-  })
-}
-
 const createConfirmCodeSettings = () =>
   new ConfirmCodeSettingsService({
     login: {
@@ -151,6 +112,7 @@ const createConfirmCodeSettings = () =>
   })
 
 class AppStore {
+  private readonly toolkit = createBackendToolkit()
   private readonly persistence = createStateRepository()
   private readonly domainTableSync = createDomainTableSync()
   private readonly sqlCollectionSync = createSqlCollectionSyncGroup()
@@ -250,9 +212,9 @@ class AppStore {
   )
 
   readonly sessionDays = DEFAULT_SESSION_DAYS
-  readonly fileStorage = new FileStorageService({ onChange: () => void this.persist(), blobStore: createBlobStore() })
-  readonly emailSender = createEmailSender()
-  readonly telegramNotifier = createTelegramNotifier()
+  readonly fileStorage = new FileStorageService({ onChange: () => void this.persist(), blobStore: this.toolkit.blobStore })
+  readonly emailSender = this.toolkit.emailSender
+  readonly telegramNotifier = this.toolkit.telegramNotifier
   readonly confirmCodeSettings = createConfirmCodeSettings()
   readonly contactInfoApi = new CollectionCrudApiService(this.contactInfos)
   readonly phoneNumberApi = new CollectionCrudApiService(this.phoneNumbers)
@@ -286,6 +248,7 @@ class AppStore {
     sessionDays: this.sessionDays,
   })
   readonly ws = new WebSocketService({ onChange: () => void this.persist() })
+  readonly toolkitStatus = this.toolkit.status
 
   constructor() {
     this.reset(false)
