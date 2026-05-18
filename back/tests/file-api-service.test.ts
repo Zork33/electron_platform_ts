@@ -45,6 +45,20 @@ describe('file api service', () => {
     expect(managed.metadata.ttl_seconds).toBe(-1)
     expect(service.getManagedFile(managed.metadata.id)?.metadata.filename).toBe('manual.txt')
     expect(service.getManagedFileUrl(managed.metadata.id, 60)?.url).toContain('/download')
+    const replacedUpload = service.uploadManagedFile({
+      storagePartName: 'archive',
+      path: 'docs/manual.txt',
+      file: {
+        originalname: 'manual-replaced.txt',
+        buffer: Buffer.from('manual3'),
+        mimetype: 'text/plain',
+      },
+      replaceExisting: true,
+      filename: 'manual-replaced.txt',
+      ext: 'txt',
+    })
+    expect(replacedUpload.metadata.id).toBe(managed.metadata.id)
+    expect(replacedUpload.metadata.filename).toBe('manual-replaced.txt')
     expect(service.replaceManagedFile(managed.metadata.id, {
       originalname: 'manual-v2.txt',
       buffer: Buffer.from('manual2'),
