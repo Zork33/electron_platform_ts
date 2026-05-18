@@ -84,6 +84,11 @@ export class AuthApiService {
       this.deps.auth.markConfirmationAccessTokenCreationFailed(confirmationToken, 'User not found')
       return { ok: false, error: 'User not found', error_code: 'USER_NOT_FOUND', status: 404 } satisfies FinishAuthResult
     }
+    if (!user.person_id) {
+      this.deps.auth.markConfirmationUserCreationFailed(confirmationToken, 'Person not found')
+      this.deps.auth.markConfirmationAccessTokenCreationFailed(confirmationToken, 'Person not found')
+      return { ok: false, error: 'Person not found', error_code: 'PERSON_NOT_FOUND', status: 404 } satisfies FinishAuthResult
+    }
     this.deps.auth.markConfirmationUserCreated(confirmationToken, user.id)
     const access = this.deps.auth.issueAccessToken(user.id)
     this.deps.auth.markConfirmationAccessTokenCreated(confirmationToken, true)

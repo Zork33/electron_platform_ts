@@ -57,8 +57,18 @@ describe('auth api service', () => {
   })
 
   test('drives login and logout flow', async () => {
+    const person = persons.create({
+      first_name: 'Demo',
+      last_name: null,
+      middle_name: null,
+      birth_date: null,
+      description: null,
+      gender_id: null,
+      vector_db_record_id: null,
+      is_vector_synced: false,
+    })
     users.create({
-      person_id: null,
+      person_id: person.id,
       auth_email: 'demo@example.com',
       has_access: true,
       is_admin: false,
@@ -195,6 +205,30 @@ describe('auth api service', () => {
         error: 'Verification attempts exceeded',
         error_code: 'VERIFICATION_ATTEMPTS_EXCEEDED',
         status: 422,
+      })
+    )
+  })
+
+  test('login finish fails when user has no person', async () => {
+    users.create({
+      person_id: null,
+      auth_email: 'noperson@example.com',
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    })
+
+    const start = await service.startLogin('noperson@example.com')
+    if (!start.ok) throw new Error(start.error)
+
+    expect(service.finishLogin(start.confirmation_token, auth.confirmationTokens.get(start.confirmation_token)?.confirm_code ?? '')).toEqual(
+      expect.objectContaining({
+        ok: false,
+        error: 'Person not found',
+        error_code: 'PERSON_NOT_FOUND',
+        status: 404,
       })
     )
   })

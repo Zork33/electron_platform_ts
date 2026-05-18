@@ -231,6 +231,33 @@ describe('http api', () => {
     })
     expect(limitLoginFinish.response.status).toBe(422)
     expect(limitLoginFinish.body.detail.error_code).toBe('VERIFICATION_ATTEMPTS_EXCEEDED')
+
+    const noPersonUser = store.users.create({
+      person_id: null,
+      auth_email: 'noperson-http@example.com',
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    })
+    expect(noPersonUser.id).toBeTruthy()
+
+    const noPersonLoginStart = await request('/user-api/auth/login-confirm-code-start', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ auth_email: 'noperson-http@example.com' }),
+    })
+    const noPersonLoginFinish = await request('/user-api/auth/login-confirm-code-finish', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        confirmation_token: noPersonLoginStart.body.confirmation_token,
+        confirm_code: store.auth.confirmationTokens.get(noPersonLoginStart.body.confirmation_token)?.confirm_code,
+      }),
+    })
+    expect(noPersonLoginFinish.response.status).toBe(404)
+    expect(noPersonLoginFinish.body.detail.error_code).toBe('PERSON_NOT_FOUND')
   })
 
   test('crud, files and object container routes', async () => {
