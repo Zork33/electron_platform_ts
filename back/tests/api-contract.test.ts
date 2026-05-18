@@ -176,7 +176,7 @@ describe('backend api contract', () => {
   test('file and websocket endpoints keep their contract shape', async () => {
     const partHealth = await request('/dev-api/file-storage/part/health/check')
     expect(partHealth.response.ok).toBe(true)
-    expect(partHealth.body).toEqual({ healthy: true, service: 'file-storage-ts' })
+    expect(partHealth.body).toEqual({ healthy: true, service: 'file_storage' })
 
     const objectInfo = await request('/dev-api/object-container/storage-info')
     expect(objectInfo.response.ok).toBe(true)

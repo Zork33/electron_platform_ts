@@ -522,7 +522,7 @@ function createDevApiRouter(wsApi: {
   })
 
   router.get('/file-storage/part/health/check', (_req, res) => {
-    res.json({ healthy: true, service: 'file-storage-ts' })
+    res.json({ healthy: true, service: 'file_storage' })
   })
 
   router.post('/file-storage/part/sync', (_req, res) => {
