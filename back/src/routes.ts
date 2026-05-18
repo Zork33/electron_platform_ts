@@ -327,7 +327,7 @@ function createUserApiRouter(): Router {
 
   router.post('/user/:id/avatar/upload', upload.single('file'), (req, res) => {
     const file = req.file
-    if (!file) return badRequest(res, 'file is required')
+    if (!file) return validationError(res, 'file is required', 'VALIDATION_ERROR')
     try {
       const user = store.profileService.uploadAvatar(toNumber(req.params.id), file)
       if (!user) return notFound(res, 'User not found')
@@ -339,7 +339,7 @@ function createUserApiRouter(): Router {
 
   router.put('/user/:id/avatar/replace', upload.single('file'), (req, res) => {
     const file = req.file
-    if (!file) return badRequest(res, 'file is required')
+    if (!file) return validationError(res, 'file is required', 'VALIDATION_ERROR')
     try {
       const user = store.profileService.replaceAvatar(toNumber(req.params.id), file)
       if (!user) return notFound(res, 'User not found')

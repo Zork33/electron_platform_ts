@@ -408,6 +408,20 @@ describe('http api', () => {
     expect(avatarReplace.body.avatar.id).toBeTruthy()
     expect(avatarReplace.body.avatar.id).toBe(avatar.body.avatar.id)
 
+    const missingAvatarUpload = await request('/user-api/user/1/avatar/upload', {
+      method: 'POST',
+      body: formData({}),
+    })
+    expect(missingAvatarUpload.response.status).toBe(422)
+    expect(missingAvatarUpload.body.detail.error_message).toBe('file is required')
+
+    const missingAvatarReplace = await request('/user-api/user/1/avatar/replace', {
+      method: 'PUT',
+      body: formData({}),
+    })
+    expect(missingAvatarReplace.response.status).toBe(422)
+    expect(missingAvatarReplace.body.detail.error_message).toBe('file is required')
+
     const invalidAvatarUpload = await request('/user-api/user/1/avatar/upload', {
       method: 'POST',
       body: formData({ file: new File([Buffer.from('not-a-png')], 'avatar.png', { type: 'image/png' }) }),
