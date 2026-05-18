@@ -436,6 +436,8 @@ describe('http api', () => {
     })
     expect(fileUpload.body.message).toBe('File uploaded successfully')
     expect(fileUpload.body.metadata.path).toBe('docs/readme.txt')
+    expect(fileUpload.body.size_bytes).toBe(Buffer.from('hello file').length)
+    expect(fileUpload.body.etag).toBeTruthy()
 
     const missingStoragePartUpload = await request('/user-api/file-storage/file/upload', {
       method: 'POST',
