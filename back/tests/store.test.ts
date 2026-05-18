@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test } from 'vitest'
-import { store, toFileMetadata } from '../src/store.js'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { createConfirmCodeSettings, store, toFileMetadata } from '../src/store.js'
 
 beforeEach(() => {
   store.reset()
@@ -97,5 +97,16 @@ describe('store', () => {
 
     store.ws.removeConnection(connId)
     expect(store.ws.listConnections()).toHaveLength(0)
+  })
+
+  test('store confirm code settings include cooldown env overrides', () => {
+    vi.stubEnv('CONFIRM_SENDING_COOLDOWN_SECONDS', '42')
+    try {
+      const settings = createConfirmCodeSettings()
+      expect(settings.getByReasonCode('LOGIN').sending_cooldown_seconds).toBe(42)
+      expect(settings.getByReasonCode('REGISTRATION').sending_cooldown_seconds).toBe(42)
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 })

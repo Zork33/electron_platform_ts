@@ -93,13 +93,14 @@ const createConfirmationSync = (): ConfirmationTokenSync | null => {
   })
 }
 
-const createConfirmCodeSettings = () =>
+export const createConfirmCodeSettings = () =>
   new ConfirmCodeSettingsService({
     login: {
       confirm_code_length: Number(process.env.CONFIRM_CODE_LENGTH ?? DEFAULT_CONFIRM_CODE_LENGTH),
       confirm_code_alphabet: process.env.CONFIRM_CODE_ALPHABET ?? DEFAULT_CONFIRM_CODE_ALPHABET,
       confirm_code_ttl_minutes: Number(process.env.CONFIRM_TTL_MINUTES ?? DEFAULT_CONFIRM_TTL_MINUTES),
       sending_max_attempts_count: Number(process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS),
+      sending_cooldown_seconds: Number(process.env.CONFIRM_SENDING_COOLDOWN_SECONDS ?? 0),
       verification_max_attempts_count: Number(process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS),
     },
     registration: {
@@ -107,6 +108,7 @@ const createConfirmCodeSettings = () =>
       confirm_code_alphabet: process.env.CONFIRM_CODE_ALPHABET ?? DEFAULT_CONFIRM_CODE_ALPHABET,
       confirm_code_ttl_minutes: Number(process.env.CONFIRM_TTL_MINUTES ?? DEFAULT_CONFIRM_TTL_MINUTES),
       sending_max_attempts_count: Number(process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_SENDING_MAX_ATTEMPTS),
+      sending_cooldown_seconds: Number(process.env.CONFIRM_SENDING_COOLDOWN_SECONDS ?? 0),
       verification_max_attempts_count: Number(process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? DEFAULT_CONFIRM_VERIFICATION_MAX_ATTEMPTS),
     },
   })
