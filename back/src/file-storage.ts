@@ -159,7 +159,7 @@ export class FileStorageService {
   }
 
   getPartNames(): string[] {
-    return [...this.fileParts.keys()].sort()
+    return [...this.fileParts.keys()]
   }
 
   getPart(name: string): FilePart | null {

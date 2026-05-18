@@ -11,7 +11,7 @@ describe('file storage service', () => {
 
     const createdPart = storage.setPart('avatars', true)
     expect(createdPart).toEqual({ code: 'avatars', name: 'avatars', is_public: true, description: null })
-    expect(storage.getPartNames()).toEqual(['avatars', 'private', 'public', 'trash'])
+    expect(storage.getPartNames()).toEqual(['private', 'public', 'trash', 'avatars'])
 
     const stored = storage.storeFile({
       storagePartName: 'avatars',
