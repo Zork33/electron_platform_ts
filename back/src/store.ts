@@ -20,6 +20,7 @@ import { FileApiService } from './file-api-service.js'
 import { FileStorageService, serializeStoredFileMetadata } from './file-storage.js'
 import { JsonAppStateStore, PostgresAppStateStore, type AppStateRepository, type PersistedAppState } from './persistent-state.js'
 import { DomainTableSync } from './domain-table-sync.js'
+import { SqlCollectionSyncGroup } from './sql-collection-sync.js'
 import { CrudCollection } from './record-collection.js'
 import { hoursFromNow } from './time.js'
 import { ObjectContainerService } from './object-container.js'
@@ -61,6 +62,20 @@ const createDomainTableSync = (): DomainTableSync | null => {
     password: process.env.DB_PASSWORD ?? 'postgres',
   })
   return new DomainTableSync({
+    query: (sql, params) => pool.query({ text: sql, values: params as unknown[] | undefined }),
+  })
+}
+
+const createSqlCollectionSyncGroup = (): SqlCollectionSyncGroup | null => {
+  if (!process.env.DB_HOST) return null
+  const pool = new Pool({
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT ?? 5432),
+    database: process.env.DB_NAME ?? 'main_db',
+    user: process.env.DB_USER ?? 'postgres',
+    password: process.env.DB_PASSWORD ?? 'postgres',
+  })
+  return new SqlCollectionSyncGroup({
     query: (sql, params) => pool.query({ text: sql, values: params as unknown[] | undefined }),
   })
 }
@@ -123,6 +138,7 @@ const createConfirmCodeSettings = () =>
 class AppStore {
   private readonly persistence = createStateRepository()
   private readonly domainTableSync = createDomainTableSync()
+  private readonly sqlCollectionSync = createSqlCollectionSyncGroup()
   private persistenceMuted = false
 
   readonly persons = new CrudCollection<Person>(
@@ -275,6 +291,129 @@ class AppStore {
       }
       this.persistenceMuted = false
     }
+    if (this.sqlCollectionSync) {
+      const sync = this.sqlCollectionSync
+      const [contactInfos, phoneNumbers, emails, tgAccs, webLinks] = await Promise.all([
+        sync.create({
+          tableName: 'contact_info',
+          columns: [
+            { dbColumn: 'id', value: (record: ContactInfo) => record.id },
+            { dbColumn: 'person_id', value: (record: ContactInfo) => record.person_id },
+            { dbColumn: 'phone_number_id', value: (record: ContactInfo) => record.phone_number_id },
+            { dbColumn: 'tg_acc_id', value: (record: ContactInfo) => record.tg_acc_id },
+            { dbColumn: 'email_id', value: (record: ContactInfo) => record.email_id },
+            { dbColumn: 'web_link_id', value: (record: ContactInfo) => record.web_link_id },
+            { dbColumn: 'description', value: (record: ContactInfo) => record.description },
+            { dbColumn: 'is_primary', value: (record: ContactInfo) => record.is_primary },
+            { dbColumn: 'created_at', value: (record: ContactInfo) => record.created_at },
+            { dbColumn: 'updated_at', value: (record: ContactInfo) => record.updated_at },
+            { dbColumn: 'deleted_at', value: (record: ContactInfo) => record.deleted_at },
+          ],
+          fromRow: (row: {
+            id: number
+            person_id: number | null
+            phone_number_id: number | null
+            tg_acc_id: number | null
+            email_id: number | null
+            web_link_id: number | null
+            description: string | null
+            is_primary: boolean
+            created_at: string
+            updated_at: string
+            deleted_at: string | null
+          }) => row,
+        }).loadAll(),
+        sync.create({
+          tableName: 'phone_number',
+          columns: [
+            { dbColumn: 'id', value: (record: PhoneNumber) => record.id },
+            { dbColumn: 'phone_pattern_id', value: (record: PhoneNumber) => record.phone_pattern_id },
+            { dbColumn: 'number', value: (record: PhoneNumber) => record.number },
+            { dbColumn: 'full_number', value: (record: PhoneNumber) => record.full_number },
+            { dbColumn: 'created_at', value: (record: PhoneNumber) => record.created_at },
+            { dbColumn: 'updated_at', value: (record: PhoneNumber) => record.updated_at },
+            { dbColumn: 'deleted_at', value: (record: PhoneNumber) => record.deleted_at },
+          ],
+          fromRow: (row: {
+            id: number
+            phone_pattern_id: number | null
+            number: string | null
+            full_number: string | null
+            created_at: string
+            updated_at: string
+            deleted_at: string | null
+          }) => row,
+        }).loadAll(),
+        sync.create({
+          tableName: 'email',
+          columns: [
+            { dbColumn: 'id', value: (record: Email) => record.id },
+            { dbColumn: 'address', value: (record: Email) => record.address },
+            { dbColumn: 'created_at', value: (record: Email) => record.created_at },
+            { dbColumn: 'updated_at', value: (record: Email) => record.updated_at },
+            { dbColumn: 'deleted_at', value: (record: Email) => record.deleted_at },
+          ],
+          fromRow: (row: { id: number; address: string; created_at: string; updated_at: string; deleted_at: string | null }) => row,
+        }).loadAll(),
+        sync.create({
+          tableName: 'tg_acc',
+          columns: [
+            { dbColumn: 'id', value: (record: TgAcc) => record.id },
+            { dbColumn: 'user_id', value: (record: TgAcc) => record.user_id },
+            { dbColumn: 'username', value: (record: TgAcc) => record.username },
+            { dbColumn: 'first_name', value: (record: TgAcc) => record.first_name },
+            { dbColumn: 'last_name', value: (record: TgAcc) => record.last_name },
+            { dbColumn: 'phone_number_id', value: (record: TgAcc) => record.phone_number_id },
+            { dbColumn: 'created_at', value: (record: TgAcc) => record.created_at },
+            { dbColumn: 'updated_at', value: (record: TgAcc) => record.updated_at },
+            { dbColumn: 'deleted_at', value: (record: TgAcc) => record.deleted_at },
+          ],
+          fromRow: (row: {
+            id: number
+            user_id: number | null
+            username: string | null
+            first_name: string | null
+            last_name: string | null
+            phone_number_id: number | null
+            created_at: string
+            updated_at: string
+            deleted_at: string | null
+          }) => row,
+        }).loadAll(),
+        sync.create({
+          tableName: 'web_link',
+          columns: [
+            { dbColumn: 'id', value: (record: WebLink) => record.id },
+            { dbColumn: 'title', value: (record: WebLink) => record.title },
+            { dbColumn: 'type_id', value: (record: WebLink) => record.type_id },
+            { dbColumn: 'custom_type_name', value: (record: WebLink) => record.custom_type_name },
+            { dbColumn: 'url', value: (record: WebLink) => record.url },
+            { dbColumn: 'description', value: (record: WebLink) => record.description },
+            { dbColumn: 'created_at', value: (record: WebLink) => record.created_at },
+            { dbColumn: 'updated_at', value: (record: WebLink) => record.updated_at },
+            { dbColumn: 'deleted_at', value: (record: WebLink) => record.deleted_at },
+          ],
+          fromRow: (row: {
+            id: number
+            title: string | null
+            type_id: number
+            custom_type_name: string | null
+            url: string
+            description: string | null
+            created_at: string
+            updated_at: string
+            deleted_at: string | null
+          }) => row,
+        }).loadAll(),
+      ])
+      this.persistenceMuted = true
+      if (contactInfos.length > 0) this.contactInfos.hydrate(contactInfos)
+      if (phoneNumbers.length > 0) this.phoneNumbers.hydrate(phoneNumbers)
+      if (emails.length > 0) this.emails.hydrate(emails)
+      if (tgAccs.length > 0) this.tgAccs.hydrate(tgAccs)
+      if (webLinks.length > 0) this.webLinks.hydrate(webLinks)
+      this.persistenceMuted = false
+    }
     await this.persist()
   }
 
@@ -411,6 +550,82 @@ class AppStore {
     await this.persistence.save(state)
     if (this.domainTableSync) {
       await this.domainTableSync.save(state.persons, state.users)
+    }
+    if (this.sqlCollectionSync) {
+      const sync = this.sqlCollectionSync
+      await Promise.all([
+        sync.create({
+          tableName: 'contact_info',
+          columns: [
+            { dbColumn: 'id', value: (record: ContactInfo) => record.id },
+            { dbColumn: 'person_id', value: (record: ContactInfo) => record.person_id },
+            { dbColumn: 'phone_number_id', value: (record: ContactInfo) => record.phone_number_id },
+            { dbColumn: 'tg_acc_id', value: (record: ContactInfo) => record.tg_acc_id },
+            { dbColumn: 'email_id', value: (record: ContactInfo) => record.email_id },
+            { dbColumn: 'web_link_id', value: (record: ContactInfo) => record.web_link_id },
+            { dbColumn: 'description', value: (record: ContactInfo) => record.description },
+            { dbColumn: 'is_primary', value: (record: ContactInfo) => record.is_primary },
+            { dbColumn: 'created_at', value: (record: ContactInfo) => record.created_at },
+            { dbColumn: 'updated_at', value: (record: ContactInfo) => record.updated_at },
+            { dbColumn: 'deleted_at', value: (record: ContactInfo) => record.deleted_at },
+          ],
+          fromRow: (row: any) => row,
+        }).replaceAll(state.contactInfos),
+        sync.create({
+          tableName: 'phone_number',
+          columns: [
+            { dbColumn: 'id', value: (record: PhoneNumber) => record.id },
+            { dbColumn: 'phone_pattern_id', value: (record: PhoneNumber) => record.phone_pattern_id },
+            { dbColumn: 'number', value: (record: PhoneNumber) => record.number },
+            { dbColumn: 'full_number', value: (record: PhoneNumber) => record.full_number },
+            { dbColumn: 'created_at', value: (record: PhoneNumber) => record.created_at },
+            { dbColumn: 'updated_at', value: (record: PhoneNumber) => record.updated_at },
+            { dbColumn: 'deleted_at', value: (record: PhoneNumber) => record.deleted_at },
+          ],
+          fromRow: (row: any) => row,
+        }).replaceAll(state.phoneNumbers),
+        sync.create({
+          tableName: 'email',
+          columns: [
+            { dbColumn: 'id', value: (record: Email) => record.id },
+            { dbColumn: 'address', value: (record: Email) => record.address },
+            { dbColumn: 'created_at', value: (record: Email) => record.created_at },
+            { dbColumn: 'updated_at', value: (record: Email) => record.updated_at },
+            { dbColumn: 'deleted_at', value: (record: Email) => record.deleted_at },
+          ],
+          fromRow: (row: any) => row,
+        }).replaceAll(state.emails),
+        sync.create({
+          tableName: 'tg_acc',
+          columns: [
+            { dbColumn: 'id', value: (record: TgAcc) => record.id },
+            { dbColumn: 'user_id', value: (record: TgAcc) => record.user_id },
+            { dbColumn: 'username', value: (record: TgAcc) => record.username },
+            { dbColumn: 'first_name', value: (record: TgAcc) => record.first_name },
+            { dbColumn: 'last_name', value: (record: TgAcc) => record.last_name },
+            { dbColumn: 'phone_number_id', value: (record: TgAcc) => record.phone_number_id },
+            { dbColumn: 'created_at', value: (record: TgAcc) => record.created_at },
+            { dbColumn: 'updated_at', value: (record: TgAcc) => record.updated_at },
+            { dbColumn: 'deleted_at', value: (record: TgAcc) => record.deleted_at },
+          ],
+          fromRow: (row: any) => row,
+        }).replaceAll(state.tgAccs),
+        sync.create({
+          tableName: 'web_link',
+          columns: [
+            { dbColumn: 'id', value: (record: WebLink) => record.id },
+            { dbColumn: 'title', value: (record: WebLink) => record.title },
+            { dbColumn: 'type_id', value: (record: WebLink) => record.type_id },
+            { dbColumn: 'custom_type_name', value: (record: WebLink) => record.custom_type_name },
+            { dbColumn: 'url', value: (record: WebLink) => record.url },
+            { dbColumn: 'description', value: (record: WebLink) => record.description },
+            { dbColumn: 'created_at', value: (record: WebLink) => record.created_at },
+            { dbColumn: 'updated_at', value: (record: WebLink) => record.updated_at },
+            { dbColumn: 'deleted_at', value: (record: WebLink) => record.deleted_at },
+          ],
+          fromRow: (row: any) => row,
+        }).replaceAll(state.webLinks),
+      ])
     }
   }
 
