@@ -40,6 +40,80 @@ const buildPathDownloadFilename = (path: string): string => {
   return segments.length > 0 ? segments[segments.length - 1] || path : path
 }
 
+type CrudFilterPredicate = (item: Record<string, unknown>) => boolean
+
+const compareCrudValues = (left: unknown, right: unknown): number => {
+  if (left === right) return 0
+  if (left === null || left === undefined) return -1
+  if (right === null || right === undefined) return 1
+  if (typeof left === 'number' && typeof right === 'number') return left - right
+  if (typeof left === 'boolean' && typeof right === 'boolean') return Number(left) - Number(right)
+  return String(left).localeCompare(String(right))
+}
+
+const resolveCrudFieldValue = (item: Record<string, unknown>, field: string): unknown => item[field]
+
+const buildCrudFilter = (filter: { field: string; operator: string; value: unknown }): CrudFilterPredicate => {
+  const operator = filter.operator.toUpperCase()
+  return (item) => {
+    const left = resolveCrudFieldValue(item, filter.field)
+    const right = filter.value
+
+    switch (operator) {
+      case '=':
+        return left === right
+      case '>':
+        return compareCrudValues(left, right) > 0
+      case '<':
+        return compareCrudValues(left, right) < 0
+      case '>=':
+        return compareCrudValues(left, right) >= 0
+      case '<=':
+        return compareCrudValues(left, right) <= 0
+      case '!=':
+      case '<>':
+        return left !== right
+      case 'LIKE':
+      case 'ILIKE': {
+        const needle = String(right ?? '').replace(/%/g, '')
+        const haystack = String(left ?? '')
+        return operator === 'ILIKE'
+          ? haystack.toLowerCase().includes(needle.toLowerCase())
+          : haystack.includes(needle)
+      }
+      case 'IN':
+        return Array.isArray(right) ? right.some((value) => value === left) : false
+      case 'NOT IN':
+        return Array.isArray(right) ? !right.some((value) => value === left) : false
+      case 'IS':
+        return right === null ? left === null || left === undefined : left === right
+      case 'IS NOT':
+        return right === null ? !(left === null || left === undefined) : left !== right
+      default:
+        return false
+    }
+  }
+}
+
+const parseCrudFilters = (value: unknown): CrudFilterPredicate[] | null => {
+  if (typeof value !== 'string' || !value.trim()) return null
+  try {
+    const parsed = JSON.parse(value) as Array<unknown>
+    if (!Array.isArray(parsed)) return null
+    const predicates: CrudFilterPredicate[] = []
+    for (const item of parsed) {
+      if (item === 'AND' || item === 'OR') continue
+      if (!item || typeof item !== 'object') return null
+      const candidate = item as { field?: unknown; operator?: unknown; value?: unknown }
+      if (typeof candidate.field !== 'string' || typeof candidate.operator !== 'string') return null
+      predicates.push(buildCrudFilter({ field: candidate.field, operator: candidate.operator, value: candidate.value }))
+    }
+    return predicates
+  } catch {
+    return null
+  }
+}
+
 const withCurrentUser = (req: Request) => {
   const token = authTokenFromRequest(req)
   if (!token) return null
@@ -58,7 +132,50 @@ function createCrudRouter<T extends BaseRecord>(collection: {
 
   router.get('/', (req, res) => {
     const includeDeleted = parseIncludeDeleted(req.query.include_deleted)
-    res.json(ok(collection.list(includeDeleted)))
+    const limitRaw = req.query.limit
+    const offsetRaw = req.query.offset
+    const orderBy = req.query.order_by ? String(req.query.order_by) : null
+    const orderDirection = String(req.query.order_direction ?? 'asc').toLowerCase()
+    if (orderDirection !== 'asc' && orderDirection !== 'desc') {
+      return badRequest(res, "Order direction must be 'asc' or 'desc'")
+    }
+
+    const limit = limitRaw === undefined ? 100 : toNumber(limitRaw, NaN)
+    const offset = offsetRaw === undefined ? 0 : toNumber(offsetRaw, NaN)
+    if (!Number.isFinite(limit) || limit < 1 || limit > 1000) {
+      return validationError(res, 'limit must be between 1 and 1000', 'VALIDATION_ERROR')
+    }
+    if (!Number.isFinite(offset) || offset < 0) {
+      return validationError(res, 'offset must be greater than or equal to 0', 'VALIDATION_ERROR')
+    }
+
+    const parsedFilters = parseCrudFilters(req.query.filters)
+    if (req.query.filters && parsedFilters === null) {
+      return badRequest(res, 'Filters must be a JSON array')
+    }
+
+    let items = collection.list(includeDeleted)
+    if (parsedFilters && parsedFilters.length) {
+      items = items.filter((item) => parsedFilters.every((predicate) => predicate(item as unknown as Record<string, unknown>)))
+    }
+
+    items = [...items].sort((left, right) => {
+      if (!orderBy) return left.id - right.id
+      return orderDirection === 'desc'
+        ? compareCrudValues(
+            resolveCrudFieldValue(right as unknown as Record<string, unknown>, orderBy),
+            resolveCrudFieldValue(left as unknown as Record<string, unknown>, orderBy)
+          )
+        : compareCrudValues(
+            resolveCrudFieldValue(left as unknown as Record<string, unknown>, orderBy),
+            resolveCrudFieldValue(right as unknown as Record<string, unknown>, orderBy)
+          )
+    })
+
+    if (limit > 0) {
+      items = items.slice(offset, offset + limit)
+    }
+    res.json(ok(items))
   })
 
   router.get('/:id', (req, res) => {

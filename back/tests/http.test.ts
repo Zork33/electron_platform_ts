@@ -393,6 +393,35 @@ describe('http api', () => {
     const userRestore = await request(`/user-api/user/${userCreate.body.id}/restore`, { method: 'POST' })
     expect(userRestore.body.deleted_at).toBeNull()
 
+    const emailOne = await request('/user-api/email', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ address: 'alpha@example.com' }),
+    })
+    expect(emailOne.body.address).toBe('alpha@example.com')
+
+    const emailTwo = await request('/user-api/email', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ address: 'beta@example.com' }),
+    })
+    expect(emailTwo.body.address).toBe('beta@example.com')
+
+    const emailListFirst = await request('/user-api/email?limit=1&offset=0&order_by=address&order_direction=asc')
+    const emailListSecond = await request('/user-api/email?limit=1&offset=1&order_by=address&order_direction=asc')
+    expect(emailListFirst.body).toHaveLength(1)
+    expect(emailListSecond.body).toHaveLength(1)
+    expect(emailListFirst.body[0].address).toBe('alpha@example.com')
+    expect(emailListSecond.body[0].address).toBe('beta@example.com')
+
+    const emailFilter = await request(
+      `/user-api/email?filters=${encodeURIComponent(
+        JSON.stringify([{ field: 'address', operator: 'ILIKE', value: '%beta%' }])
+      )}&order_by=address&order_direction=asc`
+    )
+    expect(emailFilter.body).toHaveLength(1)
+    expect(emailFilter.body[0].address).toBe('beta@example.com')
+
     const avatar = await request('/user-api/user/1/avatar/upload', {
       method: 'POST',
       body: formData({ file: new File([pngBuffer], 'avatar.png', { type: 'image/png' }) }),
