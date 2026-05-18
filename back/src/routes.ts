@@ -610,26 +610,33 @@ function createDevApiRouter(wsApi: {
   })
 
   router.post('/web-socket/send-all', (req, res) => {
-    wsApi.broadcast({ type: 'debug', target: 'all', message: String(req.body?.message ?? '') })
-    res.json({ success: true })
+    const message = String(req.body?.message ?? '')
+    wsApi.broadcast({ type: 'debug', target: 'all', message })
+    res.json({ sent: true, target: 'all' })
   })
 
   router.post('/web-socket/send-user/:userId', (req, res) => {
+    const userId = toNumber(req.params.userId)
+    const message = String(req.body?.message ?? '')
     wsApi.sendToUser(toNumber(req.params.userId), {
       type: 'debug',
-      target: `user:${req.params.userId}`,
-      message: String(req.body?.message ?? ''),
+      target: 'user',
+      user_id: userId,
+      message,
     })
-    res.json({ success: true })
+    res.json({ sent: true, target: 'user', user_id: userId })
   })
 
   router.post('/web-socket/send-connection/:connId', (req, res) => {
+    const connId = toNumber(req.params.connId)
+    const message = String(req.body?.message ?? '')
     wsApi.sendToConnection(toNumber(req.params.connId), {
       type: 'debug',
-      target: `connection:${req.params.connId}`,
-      message: String(req.body?.message ?? ''),
+      target: 'connection',
+      conn_id: connId,
+      message,
     })
-    res.json({ success: true })
+    res.json({ sent: true, target: 'connection', conn_id: connId })
   })
 
   return router

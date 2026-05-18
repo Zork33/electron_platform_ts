@@ -783,14 +783,14 @@ describe('http api', () => {
       headers: jsonHeaders,
       body: JSON.stringify({ message: 'hello everyone' }),
     })
-    expect(sendAll.body.success).toBe(true)
+    expect(sendAll.body).toEqual({ sent: true, target: 'all' })
 
     const sendUser = await request('/dev-api/web-socket/send-user/1', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify({ message: 'hello user' }),
     })
-    expect(sendUser.body.success).toBe(true)
+    expect(sendUser.body).toEqual({ sent: true, target: 'user', user_id: 1 })
 
     const connId = store.ws.listConnections()[0].conn_id
     const sendConnection = await request(`/dev-api/web-socket/send-connection/${connId}`, {
@@ -798,13 +798,15 @@ describe('http api', () => {
       headers: jsonHeaders,
       body: JSON.stringify({ message: 'hello connection' }),
     })
-    expect(sendConnection.body.success).toBe(true)
+    expect(sendConnection.body).toEqual({ sent: true, target: 'connection', conn_id: connId })
 
     await new Promise((resolve) => setTimeout(resolve, 25))
     expect(messages.some((entry) => entry.includes('connected'))).toBe(true)
     expect(messages.some((entry) => entry.includes('hello everyone'))).toBe(true)
-    expect(messages.some((entry) => entry.includes('hello user'))).toBe(true)
-    expect(messages.some((entry) => entry.includes('hello connection'))).toBe(true)
+    expect(messages.some((entry) => entry.includes('"target":"user"'))).toBe(true)
+    expect(messages.some((entry) => entry.includes('"user_id":1'))).toBe(true)
+    expect(messages.some((entry) => entry.includes('"target":"connection"'))).toBe(true)
+    expect(messages.some((entry) => entry.includes(`"conn_id":${connId}`))).toBe(true)
 
     await new Promise<void>((resolve) => {
       socket.once('close', () => resolve())
