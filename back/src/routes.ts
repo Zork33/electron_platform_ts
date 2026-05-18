@@ -402,7 +402,13 @@ function createUserApiRouter(): Router {
     try {
       const result = store.fileApiService.uploadFile({ storagePartName, path, file })
       if (!result) return badRequest(res, 'path is required')
-      res.json({ success: true, ...result })
+      res.json({
+        success: true,
+        message: 'File uploaded successfully',
+        ...result,
+        size_bytes: result.metadata.size_bytes,
+        etag: result.metadata.etag,
+      })
     } catch (error) {
       return badRequest(res, error instanceof Error ? error.message : 'Invalid file upload')
     }
@@ -424,7 +430,11 @@ function createUserApiRouter(): Router {
     const path = String(req.query.path ?? '')
     const result = store.fileApiService.deleteFile(storagePartName, path)
     if (!result) return notFound(res, 'File not found')
-    res.json({ success: true, ...result })
+    res.json({
+      success: true,
+      message: 'File deleted successfully',
+      ...result,
+    })
   })
 
   router.get('/file-storage/file/info', (req, res) => {
@@ -441,7 +451,14 @@ function createUserApiRouter(): Router {
     const expiresIn = toNumber(req.query.expires_in, 3600)
     const result = store.fileApiService.getPresignedUrl(storagePartName, path, expiresIn)
     if (!result) return notFound(res, 'File not found')
-    res.json({ success: true, ...result })
+    res.json({
+      success: true,
+      ...result,
+      file_path: {
+        storage_part_name: storagePartName,
+        path,
+      },
+    })
   })
 
   router.get('/file-manager/list', (req, res) => {

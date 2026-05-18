@@ -434,6 +434,7 @@ describe('http api', () => {
         path: 'docs/readme.txt',
       }),
     })
+    expect(fileUpload.body.message).toBe('File uploaded successfully')
     expect(fileUpload.body.metadata.path).toBe('docs/readme.txt')
 
     const missingStoragePartUpload = await request('/user-api/file-storage/file/upload', {
@@ -639,9 +640,18 @@ describe('http api', () => {
 
     const presignedUrl = await request('/user-api/file-storage/file/presigned-url?storage_part_name=archive&path=docs%2Freadme.txt&expires_in=60')
     expect(presignedUrl.body.presigned_url).toContain('/user-api/file-storage/file/download')
+    expect(presignedUrl.body.file_path).toEqual({
+      storage_part_name: 'archive',
+      path: 'docs/readme.txt',
+    })
 
     const fileStorageDelete = await request('/user-api/file-storage/file/delete?storage_part_name=archive&path=docs%2Freadme.txt', {
       method: 'DELETE',
+    })
+    expect(fileStorageDelete.body.message).toBe('File deleted successfully')
+    expect(fileStorageDelete.body.file_path).toEqual({
+      storage_part_name: 'archive',
+      path: 'docs/readme.txt',
     })
     expect(fileStorageDelete.body.file_path.path).toBe('docs/readme.txt')
 
