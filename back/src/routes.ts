@@ -35,6 +35,11 @@ const buildDownloadFilename = (filename: string, ext: string): { asciiFilename: 
   }
 }
 
+const buildPathDownloadFilename = (path: string): string => {
+  const segments = path.split('/')
+  return segments.length > 0 ? segments[segments.length - 1] || path : path
+}
+
 const withCurrentUser = (req: Request) => {
   const token = authTokenFromRequest(req)
   if (!token) return null
@@ -384,7 +389,9 @@ function createUserApiRouter(): Router {
     const path = String(req.query.path ?? '')
     const file = store.fileApiService.downloadFile(storagePartName, path)
     if (!file) return notFound(res, 'File not found')
+    const filename = buildPathDownloadFilename(path)
     res.setHeader('Content-Type', file.contentType)
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     res.send(file.content)
   })
 

@@ -302,6 +302,8 @@ describe('http api', () => {
 
     const fileDownload = await request('/user-api/file-storage/file/download?storage_part_name=archive&path=docs%2Freadme.txt')
     expect(Buffer.from(await fileDownload.response.arrayBuffer()).toString()).toBe('hello file')
+    expect(fileDownload.response.headers.get('content-disposition')).toContain('attachment;')
+    expect(fileDownload.response.headers.get('content-disposition')).toContain('filename="readme.txt"')
 
     const fileManagerUpload = await request('/user-api/file-manager/upload', {
       method: 'POST',
