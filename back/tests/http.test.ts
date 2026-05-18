@@ -451,6 +451,14 @@ describe('http api', () => {
     expect(partCreate.body.message).toBe("Part 'archive' created successfully")
     expect(partCreate.body.part).toEqual({ name: 'archive', is_public: false })
 
+    const missingPartNameCreate = await request('/user-api/file-storage/part/create', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ is_public: false }),
+    })
+    expect(missingPartNameCreate.response.status).toBe(422)
+    expect(missingPartNameCreate.body.detail.error_message).toBe('name is required')
+
     const duplicatePartCreate = await request('/user-api/file-storage/part/create', {
       method: 'POST',
       headers: jsonHeaders,
@@ -673,6 +681,14 @@ describe('http api', () => {
     })
     expect(partUpdate.body.message).toBe("Part 'archive' public status set to true")
     expect(partUpdate.body.part).toEqual({ name: 'archive', is_public: true })
+
+    const missingPublicFlagUpdate = await request('/dev-api/file-storage/part/archive/public', {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify({}),
+    })
+    expect(missingPublicFlagUpdate.response.status).toBe(422)
+    expect(missingPublicFlagUpdate.body.detail.error_message).toBe('is_public is required')
 
     store.fileStorage.fileParts.delete('trash')
     const partSync = await request('/dev-api/file-storage/part/sync', { method: 'POST' })

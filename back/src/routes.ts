@@ -367,7 +367,7 @@ function createUserApiRouter(): Router {
 
   router.post('/file-storage/part/create', (req, res) => {
     const name = String(req.body?.name ?? '').trim()
-    if (!name) return badRequest(res, 'name is required')
+    if (!name) return validationError(res, 'name is required', 'VALIDATION_ERROR')
     const part = store.fileApiService.createPart(name, Boolean(req.body?.is_public))
     if (!part) return conflict(res, `Part '${name}' already exists`)
     res.json({
@@ -562,7 +562,10 @@ function createDevApiRouter(wsApi: {
 
   router.patch('/file-storage/part/:partName/public', (req, res) => {
     const partName = req.params.partName
-    const isPublic = Boolean(req.body?.is_public)
+    if (typeof req.body?.is_public !== 'boolean') {
+      return validationError(res, 'is_public is required', 'VALIDATION_ERROR')
+    }
+    const isPublic = req.body.is_public
     const part = store.fileApiService.setPartPublic(partName, isPublic)
     if (!part) return notFound(res, 'Part not found')
     res.json({
