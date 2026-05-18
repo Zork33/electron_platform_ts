@@ -9,6 +9,7 @@ import type {
   User,
   WebLink,
 } from './types.js'
+import { Pool } from 'pg'
 import { AuthApiService } from './auth-api-service.js'
 import { AuthService } from './auth-service.js'
 import { NoopEmailSender, SmtpEmailSender, type EmailSender } from './email-sender.js'
@@ -18,6 +19,7 @@ import { EventService } from './event-service.js'
 import { FileApiService } from './file-api-service.js'
 import { FileStorageService, serializeStoredFileMetadata } from './file-storage.js'
 import { JsonAppStateStore, PostgresAppStateStore, type AppStateRepository, type PersistedAppState } from './persistent-state.js'
+import { DomainTableSync } from './domain-table-sync.js'
 import { CrudCollection } from './record-collection.js'
 import { hoursFromNow } from './time.js'
 import { ObjectContainerService } from './object-container.js'
@@ -47,6 +49,20 @@ const createStateRepository = (): AppStateRepository => {
     })
   }
   return new JsonAppStateStore()
+}
+
+const createDomainTableSync = (): DomainTableSync | null => {
+  if (!process.env.DB_HOST) return null
+  const pool = new Pool({
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT ?? 5432),
+    database: process.env.DB_NAME ?? 'main_db',
+    user: process.env.DB_USER ?? 'postgres',
+    password: process.env.DB_PASSWORD ?? 'postgres',
+  })
+  return new DomainTableSync({
+    query: (sql, params) => pool.query({ text: sql, values: params as unknown[] | undefined }),
+  })
 }
 
 const createBlobStore = () => {
@@ -106,6 +122,7 @@ const createConfirmCodeSettings = () =>
 
 class AppStore {
   private readonly persistence = createStateRepository()
+  private readonly domainTableSync = createDomainTableSync()
   private persistenceMuted = false
 
   readonly persons = new CrudCollection<Person>(
@@ -116,7 +133,7 @@ class AppStore {
       birth_date: null,
       description: null,
     }),
-    () => this.persist()
+    () => void this.persist()
   )
 
   readonly users = new CrudCollection<User>(
@@ -129,7 +146,7 @@ class AppStore {
       avatar_id: null,
       auth_telegram_id: null,
     }),
-    () => this.persist()
+    () => void this.persist()
   )
 
   readonly contactInfos = new CrudCollection<ContactInfo>(
@@ -142,7 +159,7 @@ class AppStore {
       description: null,
       is_primary: false,
     }),
-    () => this.persist()
+    () => void this.persist()
   )
 
   readonly phoneNumbers = new CrudCollection<PhoneNumber>(
@@ -151,14 +168,14 @@ class AppStore {
       number: null,
       full_number: null,
     }),
-    () => this.persist()
+    () => void this.persist()
   )
 
   readonly emails = new CrudCollection<Email>(
     () => ({
       address: '',
     }),
-    () => this.persist()
+    () => void this.persist()
   )
 
   readonly tgAccs = new CrudCollection<TgAcc>(
@@ -169,7 +186,7 @@ class AppStore {
       last_name: null,
       phone_number_id: null,
     }),
-    () => this.persist()
+    () => void this.persist()
   )
 
   readonly webLinks = new CrudCollection<WebLink>(
@@ -180,7 +197,7 @@ class AppStore {
       url: '',
       description: null,
     }),
-    () => this.persist()
+    () => void this.persist()
   )
 
   readonly events = new CrudCollection<LoungeEvent>(
@@ -193,11 +210,11 @@ class AppStore {
       ends_at: null,
       report_gallery_ids: [],
     }),
-    () => this.persist()
+    () => void this.persist()
   )
 
   readonly sessionDays = DEFAULT_SESSION_DAYS
-  readonly fileStorage = new FileStorageService({ onChange: () => this.persist(), blobStore: createBlobStore() })
+  readonly fileStorage = new FileStorageService({ onChange: () => void this.persist(), blobStore: createBlobStore() })
   readonly emailSender = createEmailSender()
   readonly telegramNotifier = createTelegramNotifier()
   readonly confirmCodeSettings = createConfirmCodeSettings()
@@ -220,7 +237,7 @@ class AppStore {
     patchUser: (userId, patch) => {
       this.users.patch(userId, patch)
     },
-    onChange: () => this.persist(),
+    onChange: () => void this.persist(),
     sessionDays: Number(process.env.AUTH_SESSION_DAYS ?? DEFAULT_SESSION_DAYS),
     confirmCodeSettings: this.confirmCodeSettings,
   })
@@ -232,7 +249,7 @@ class AppStore {
     telegramNotifier: this.telegramNotifier,
     sessionDays: this.sessionDays,
   })
-  readonly ws = new WebSocketService({ onChange: () => this.persist() })
+  readonly ws = new WebSocketService({ onChange: () => void this.persist() })
 
   constructor() {
     this.reset(false)
@@ -242,7 +259,17 @@ class AppStore {
     const loaded = await this.persistence.load()
     if (loaded) {
       await this.hydrateState(loaded)
-      return
+    }
+    if (this.domainTableSync) {
+      const domainState = await this.domainTableSync.load()
+      this.persistenceMuted = true
+      if (domainState.persons.length > 0) {
+        this.persons.hydrate(domainState.persons)
+      }
+      if (domainState.users.length > 0) {
+        this.users.hydrate(domainState.users)
+      }
+      this.persistenceMuted = false
     }
     await this.persist()
   }
@@ -263,7 +290,7 @@ class AppStore {
     this.seedCoreData()
     this.seedDemoData()
     this.persistenceMuted = false
-    if (persist) this.persist()
+    if (persist) void this.persist()
   }
 
   private seedCoreData(): void {
@@ -369,9 +396,13 @@ class AppStore {
     }
   }
 
-  private persist(): void {
+  private async persist(): Promise<void> {
     if (this.persistenceMuted) return
-    void this.persistence.save(this.exportState())
+    const state = this.exportState()
+    await this.persistence.save(state)
+    if (this.domainTableSync) {
+      await this.domainTableSync.save(state.persons, state.users)
+    }
   }
 
   snapshot() {
