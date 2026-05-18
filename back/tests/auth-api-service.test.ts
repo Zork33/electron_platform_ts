@@ -113,4 +113,37 @@ describe('auth api service', () => {
     if (!registration.ok) throw new Error(registration.error)
     expect(auth.confirmationTokens.get(registration.confirmation_token)?.auth_email).toBe('newuser@example.com')
   })
+
+  test('telegram failure does not add an extra send attempt', async () => {
+    users.create({
+      person_id: null,
+      auth_email: 'telegram@example.com',
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: '123456789',
+    })
+
+    const failingService = new AuthApiService({
+      auth,
+      profile,
+      confirmCodeSettings,
+      emailSender,
+      telegramNotifier: {
+        sendMessage: async () => {
+          throw new Error('telegram failed')
+        },
+      },
+      sessionDays: 7,
+    })
+
+    const start = await failingService.startLogin('telegram@example.com')
+    expect(start.ok).toBe(true)
+    if (!start.ok) throw new Error(start.error)
+
+    const confirmation = auth.confirmationTokens.get(start.confirmation_token)
+    expect(confirmation?.sending_attempts_count).toBe(1)
+    expect(confirmation?.history.filter((entry) => entry.action === 'send')).toHaveLength(1)
+  })
 })

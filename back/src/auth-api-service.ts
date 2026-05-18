@@ -149,7 +149,7 @@ export class AuthApiService {
     try {
       await this.deps.telegramNotifier.sendMessage(user.auth_telegram_id, text)
     } catch (error) {
-      this.deps.auth.markConfirmationSent(token, false, error instanceof Error ? error.message : 'Failed to send confirmation telegram message')
+      void error
     }
   }
 }
