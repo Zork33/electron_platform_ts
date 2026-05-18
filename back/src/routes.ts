@@ -298,7 +298,7 @@ function createUserApiRouter(): Router {
 
   router.post('/event/:eventId/report_gallery/upload', upload.single('file'), (req, res) => {
     const file = req.file
-    if (!file) return badRequest(res, 'file is required')
+    if (!file) return validationError(res, 'file is required', 'VALIDATION_ERROR')
     const metadata = store.eventService.addGalleryFile(toNumber(req.params.eventId), file)
     if (!metadata) return notFound(res, 'Event not found')
     res.json({ success: true, metadata: metadata.report_gallery.at(-1) ?? null })

@@ -692,6 +692,13 @@ describe('http api', () => {
     })
     expect(eventUpdate.body.description).toBe('updated')
 
+    const missingGalleryUpload = await request(`/user-api/event/${eventCreate.body.id}/report_gallery/upload`, {
+      method: 'POST',
+      body: formData({}),
+    })
+    expect(missingGalleryUpload.response.status).toBe(422)
+    expect(missingGalleryUpload.body.detail.error_message).toBe('file is required')
+
     const galleryUpload = await request(`/user-api/event/${eventCreate.body.id}/report_gallery/upload`, {
       method: 'POST',
       body: formData({
