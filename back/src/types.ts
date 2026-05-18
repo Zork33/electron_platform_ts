@@ -99,17 +99,27 @@ export interface ConfirmationTokenRecord {
   token: string
   kind: 'login' | 'register'
   auth_email: string
+  user_id?: number | null
   first_name?: string | null
   last_name?: string | null
   middle_name?: string | null
+  reason_id?: number | null
   confirm_code: string
   expires_at: string
+  sending_at?: string | null
   is_sent: boolean
   sending_attempts_count: number
   sending_error: string | null
+  verification_at?: string | null
   is_verified: boolean
   verification_attempts_count: number
   verification_error: string | null
+  user_creation_at?: string | null
+  is_user_created?: boolean
+  user_creation_error?: string | null
+  access_token_created_at?: string | null
+  is_access_token_created?: boolean
+  access_token_error?: string | null
   history: ConfirmationHistoryEntry[]
 }
 

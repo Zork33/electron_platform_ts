@@ -56,7 +56,9 @@ export class AuthApiService {
     if (!verification.ok) return verification
     const user = this.deps.profile.findUserByEmail(verification.record.auth_email)
     if (!user) return { ok: false, error: 'User not found' }
+    this.deps.auth.markConfirmationUserCreated(confirmationToken, user.id)
     const access = this.deps.auth.issueAccessToken(user.id)
+    this.deps.auth.markConfirmationAccessTokenCreated(confirmationToken, true)
     return {
       access_token: access.token,
       expires_at: access.expires_at,
@@ -76,7 +78,9 @@ export class AuthApiService {
       last_name: verification.record.last_name,
       middle_name: verification.record.middle_name,
     })
+    this.deps.auth.markConfirmationUserCreated(confirmationToken, user.id)
     const access = this.deps.auth.issueAccessToken(user.id)
+    this.deps.auth.markConfirmationAccessTokenCreated(confirmationToken, true)
     return {
       access_token: access.token,
       expires_at: access.expires_at,

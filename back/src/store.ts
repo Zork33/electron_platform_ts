@@ -20,6 +20,7 @@ import { FileApiService } from './file-api-service.js'
 import { FileStorageService, serializeStoredFileMetadata } from './file-storage.js'
 import { JsonAppStateStore, PostgresAppStateStore, type AppStateRepository, type PersistedAppState } from './persistent-state.js'
 import { DomainTableSync } from './domain-table-sync.js'
+import { ConfirmationTokenSync } from './confirmation-sync.js'
 import { SqlCollectionSyncGroup } from './sql-collection-sync.js'
 import { CrudCollection } from './record-collection.js'
 import { hoursFromNow } from './time.js'
@@ -76,6 +77,20 @@ const createSqlCollectionSyncGroup = (): SqlCollectionSyncGroup | null => {
     password: process.env.DB_PASSWORD ?? 'postgres',
   })
   return new SqlCollectionSyncGroup({
+    query: (sql, params) => pool.query({ text: sql, values: params as unknown[] | undefined }),
+  })
+}
+
+const createConfirmationSync = (): ConfirmationTokenSync | null => {
+  if (!process.env.DB_HOST) return null
+  const pool = new Pool({
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT ?? 5432),
+    database: process.env.DB_NAME ?? 'main_db',
+    user: process.env.DB_USER ?? 'postgres',
+    password: process.env.DB_PASSWORD ?? 'postgres',
+  })
+  return new ConfirmationTokenSync({
     query: (sql, params) => pool.query({ text: sql, values: params as unknown[] | undefined }),
   })
 }
@@ -139,6 +154,7 @@ class AppStore {
   private readonly persistence = createStateRepository()
   private readonly domainTableSync = createDomainTableSync()
   private readonly sqlCollectionSync = createSqlCollectionSyncGroup()
+  private readonly confirmationSync = createConfirmationSync()
   private persistenceMuted = false
 
   readonly persons = new CrudCollection<Person>(
@@ -414,6 +430,15 @@ class AppStore {
       if (webLinks.length > 0) this.webLinks.hydrate(webLinks)
       this.persistenceMuted = false
     }
+    if (this.confirmationSync) {
+      const confirmationTokens = await this.confirmationSync.loadAll()
+      this.persistenceMuted = true
+      this.auth.confirmationTokens.clear()
+      for (const record of confirmationTokens) {
+        this.auth.confirmationTokens.set(record.token, { ...record })
+      }
+      this.persistenceMuted = false
+    }
     await this.persist()
   }
 
@@ -626,6 +651,9 @@ class AppStore {
           fromRow: (row: any) => row,
         }).replaceAll(state.webLinks),
       ])
+    }
+    if (this.confirmationSync) {
+      await this.confirmationSync.replaceAll([...this.auth.confirmationTokens.values()])
     }
   }
 

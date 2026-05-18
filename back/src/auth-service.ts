@@ -11,6 +11,8 @@ import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
 
 const DEFAULT_SESSION_DAYS = 7
 const DEFAULT_JWT_SECRET = 'electron_platform_ts_dev_secret'
+const LOGIN_REASON_ID = 2
+const REGISTRATION_REASON_ID = 1
 
 export interface AuthServiceDeps {
   getUserById: (userId: number) => User | null
@@ -72,17 +74,27 @@ export class AuthService {
       token,
       kind,
       auth_email: payload.auth_email,
+      reason_id: kind === 'login' ? LOGIN_REASON_ID : REGISTRATION_REASON_ID,
+      user_id: null,
       first_name: payload.first_name ?? null,
       last_name: payload.last_name ?? null,
       middle_name: payload.middle_name ?? null,
       confirm_code: this.generateConfirmCode(settings.confirm_code_length, settings.confirm_code_alphabet),
       expires_at: minutesFromNow(settings.confirm_code_ttl_minutes),
+      sending_at: null,
       is_sent: false,
       sending_attempts_count: 0,
       sending_error: null,
+      verification_at: null,
       is_verified: false,
       verification_attempts_count: 0,
       verification_error: null,
+      user_creation_at: null,
+      is_user_created: false,
+      user_creation_error: null,
+      access_token_created_at: null,
+      is_access_token_created: false,
+      access_token_error: null,
       history: [
         {
           action: 'create',
@@ -146,6 +158,7 @@ export class AuthService {
     }
     record.is_sent = ok
     record.sending_attempts_count += 1
+    record.sending_at = nowIso()
     record.sending_error = error_message
     return this.appendConfirmationHistory(record, 'send', ok, error_message)
   }
@@ -164,6 +177,7 @@ export class AuthService {
     }
 
     record.verification_attempts_count += 1
+    record.verification_at = nowIso()
     if (record.confirm_code !== receivedCode.trim()) {
       record.is_verified = false
       record.verification_error = 'Invalid confirmation code'
@@ -175,6 +189,27 @@ export class AuthService {
     record.verification_error = null
     this.appendConfirmationHistory(record, 'verify', true, null)
     return { ok: true, record }
+  }
+
+  markConfirmationUserCreated(token: string, userId: number): ConfirmationTokenRecord | null {
+    const record = this.getConfirmation(token)
+    if (!record) return null
+    record.user_id = userId
+    record.user_creation_at = nowIso()
+    record.is_user_created = true
+    record.user_creation_error = null
+    this.deps.onChange?.()
+    return record
+  }
+
+  markConfirmationAccessTokenCreated(token: string, ok: boolean, error: string | null = null): ConfirmationTokenRecord | null {
+    const record = this.getConfirmation(token)
+    if (!record) return null
+    record.access_token_created_at = nowIso()
+    record.is_access_token_created = ok
+    record.access_token_error = error
+    this.deps.onChange?.()
+    return record
   }
 
   issueAccessToken(userId: number): AccessTokenRecord {
