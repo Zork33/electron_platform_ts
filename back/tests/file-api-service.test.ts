@@ -26,6 +26,7 @@ describe('file api service', () => {
       },
     })
     expect(uploaded?.metadata.filename).toBe('readme.txt')
+    expect(uploaded?.metadata.ttl_seconds).toBe(-1)
     expect(service.downloadFile('archive', 'docs/readme.txt')?.contentType).toBe('text/plain')
     expect(service.getFileInfo('archive', 'docs/readme.txt')?.file_info.size_bytes).toBe(5)
     expect(service.getPresignedUrl('archive', 'docs/readme.txt', 3600)?.expires_in).toBe(3600)
@@ -41,6 +42,7 @@ describe('file api service', () => {
       },
     })
     expect(managed.metadata.path).toBe('docs/manual.txt')
+    expect(managed.metadata.ttl_seconds).toBe(-1)
     expect(service.getManagedFile(managed.metadata.id)?.metadata.filename).toBe('manual.txt')
     expect(service.getManagedFileUrl(managed.metadata.id, 60)?.url).toContain('/download')
     expect(service.replaceManagedFile(managed.metadata.id, {

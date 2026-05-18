@@ -62,13 +62,17 @@ export class ObjectContainerService {
       const objects = this.fileStorage
         .listFiles(false)
         .filter((file) => file.storage_part_name === category)
-        .map((file) => ({
-          id: String(file.id),
-          created_at: file.created_at,
-          last_accessed: file.updated_at,
-          ttl_seconds: -1,
-          expires_at: null,
-        }))
+        .map((file) => {
+          const ttlSeconds = file.ttl_seconds ?? -1
+          const expiresAt = ttlSeconds === -1 ? null : new Date(new Date(file.created_at).getTime() + ttlSeconds * 1000).toISOString()
+          return {
+            id: String(file.id),
+            created_at: file.created_at,
+            last_accessed: file.updated_at,
+            ttl_seconds: ttlSeconds,
+            expires_at: expiresAt,
+          }
+        })
       return {
         category,
         object_count: objects.length,

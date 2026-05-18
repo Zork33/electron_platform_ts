@@ -43,6 +43,7 @@ export class FileStorageService {
         content_type: null,
         last_modified: null,
         etag: null,
+        ttl_seconds: -1,
         content: Buffer.alloc(0),
       }),
       () => this.deps.onChange?.()
@@ -84,6 +85,7 @@ export class FileStorageService {
         content_type: input.contentType ?? existing.content_type,
         last_modified: now,
         etag: crypto.createHash('sha1').update(input.content).digest('hex'),
+        ttl_seconds: existing.ttl_seconds ?? -1,
         content: input.content,
       } as Partial<StoredFileRecord>)
       void this.deps.blobStore?.put(existing.object_key, input.content, input.contentType ?? existing.content_type)
@@ -103,6 +105,7 @@ export class FileStorageService {
       content_type: input.contentType ?? null,
       last_modified: now,
       etag: crypto.createHash('sha1').update(input.content).digest('hex'),
+      ttl_seconds: -1,
       content: input.content,
     })
     void this.deps.blobStore?.put(objectKey, input.content, input.contentType ?? null)
@@ -278,6 +281,7 @@ export class FileStorageService {
         return {
           ...file,
           content: blobContent ?? Buffer.from(file.content_base64 ?? '', 'base64'),
+          ttl_seconds: file.ttl_seconds ?? -1,
         }
       })
     )
@@ -300,6 +304,7 @@ export const serializeStoredFileMetadata = (file: StoredFileRecord | null): Stor
         content_type: file.content_type,
         last_modified: file.last_modified,
         etag: file.etag,
+        ttl_seconds: file.ttl_seconds,
         created_at: file.created_at,
         updated_at: file.updated_at,
         deleted_at: file.deleted_at,

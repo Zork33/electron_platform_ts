@@ -183,6 +183,7 @@ export class FileApiService {
       content_type: file.content_type,
       last_modified: file.last_modified,
       etag: file.etag,
+      ttl_seconds: file.ttl_seconds,
       created_at: file.created_at,
       updated_at: file.updated_at,
       deleted_at: file.deleted_at,

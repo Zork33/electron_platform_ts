@@ -91,6 +91,7 @@ export interface StoredFileMetadata extends BaseRecord {
   content_type: string | null
   last_modified: string | null
   etag: string | null
+  ttl_seconds: number
 }
 
 export interface StoredFileRecord extends StoredFileMetadata {
