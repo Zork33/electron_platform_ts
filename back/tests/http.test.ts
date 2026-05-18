@@ -544,6 +544,12 @@ describe('http api', () => {
 
     const partList = await request('/dev-api/file-storage/part/')
     expect(partList.body.count).toBeGreaterThanOrEqual(3)
+    expect(partList.body.parts.find((part: Record<string, unknown>) => part.name === 'private')).toMatchObject({
+      code: 'private',
+      name: 'private',
+      is_public: false,
+      description: null,
+    })
 
     const partUpdate = await request('/dev-api/file-storage/part/archive/public', {
       method: 'PATCH',
