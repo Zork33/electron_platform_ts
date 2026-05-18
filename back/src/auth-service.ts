@@ -5,9 +5,9 @@ import type {
   ConfirmationTokenRecord,
   User,
 } from './types.js'
-import { createJwt, verifyJwt } from './jwt.js'
 import { ConfirmCodeSettingsService } from './logic/process/auth/confirm_code/settings.js'
 import { hoursFromNow, minutesFromNow, nowIso } from './time.js'
+import { JwtAuthError, UserAuthJwtManager } from './user-auth-jwt-manager.js'
 
 const DEFAULT_SESSION_DAYS = 7
 const DEFAULT_JWT_SECRET = 'electron_platform_ts_dev_secret'
@@ -29,10 +29,15 @@ export class AuthService {
   private readonly jwtSecret: string
   private readonly sessionDays: number
   private readonly confirmCodeSettings: ConfirmCodeSettingsService
+  private readonly jwtManager: UserAuthJwtManager
 
   constructor(private readonly deps: AuthServiceDeps) {
     this.jwtSecret = deps.jwtSecret ?? process.env.AUTH_JWT_SECRET ?? DEFAULT_JWT_SECRET
     this.sessionDays = deps.sessionDays ?? Number(process.env.AUTH_SESSION_DAYS ?? DEFAULT_SESSION_DAYS)
+    this.jwtManager = new UserAuthJwtManager({
+      secretKey: this.jwtSecret,
+      accessTokenExpireMinutes: 24 * 60 * this.sessionDays,
+    })
     this.confirmCodeSettings =
       deps.confirmCodeSettings ??
       new ConfirmCodeSettingsService({
@@ -213,16 +218,7 @@ export class AuthService {
   }
 
   issueAccessToken(userId: number): AccessTokenRecord {
-    const expires_at = hoursFromNow(24 * this.sessionDays)
-    const token = createJwt(
-      {
-        user_id: userId,
-        created_at: Math.floor(Date.now() / 1000),
-        expires_at: Math.floor(new Date(expires_at).getTime() / 1000),
-        jti: crypto.randomUUID(),
-      },
-      this.jwtSecret
-    )
+    const { token, expires_at } = this.jwtManager.createAccessToken(userId)
     const record: AccessTokenRecord = {
       token,
       user_id: userId,
@@ -238,12 +234,18 @@ export class AuthService {
   }
 
   refreshAccessToken(oldToken: string): AccessTokenRecord | null {
-    const payload = verifyJwt(oldToken, this.jwtSecret)
-    if (!payload) return null
+    let payload
+    try {
+      payload = this.jwtManager.validateAccessToken(`Bearer ${oldToken}`)
+      this.jwtManager.checkTokenExpiry(payload)
+    } catch (error) {
+      if (error instanceof JwtAuthError) return null
+      return null
+    }
     const existing = this.accessTokens.get(oldToken)
     if (!existing) return null
     const user = this.validateUserSession(this.deps.getUserById(existing.user_id))
-    if (!user || new Date(existing.expires_at).getTime() <= Date.now() || new Date(payload.expires_at * 1000).getTime() <= Date.now()) {
+    if (!user || new Date(existing.expires_at).getTime() <= Date.now() || payload.user_id !== existing.user_id) {
       this.accessTokens.delete(oldToken)
       this.deps.onChange?.()
       return null
@@ -274,8 +276,14 @@ export class AuthService {
   }
 
   getUserByAccessToken(token: string): User | null {
-    const payload = verifyJwt(token, this.jwtSecret)
-    if (!payload) return null
+    let payload
+    try {
+      payload = this.jwtManager.validateAccessToken(`Bearer ${token}`)
+      this.jwtManager.checkTokenExpiry(payload)
+    } catch (error) {
+      if (error instanceof JwtAuthError) return null
+      return null
+    }
     const record = this.accessTokens.get(token)
     if (!record) return null
     if (new Date(record.expires_at).getTime() <= Date.now() || payload.user_id !== record.user_id) {
