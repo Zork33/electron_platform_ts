@@ -616,6 +616,12 @@ describe('http api', () => {
     const fileManagerList = await request('/user-api/file-manager/list')
     expect(fileManagerList.body.items.length).toBeGreaterThan(0)
 
+    const fileManagerListPage1 = await request('/user-api/file-manager/list?page_count=1&page_number=1')
+    const fileManagerListPage2 = await request('/user-api/file-manager/list?page_count=1&page_number=2')
+    expect(fileManagerListPage1.body.items).toHaveLength(1)
+    expect(fileManagerListPage2.body.items).toHaveLength(1)
+    expect(fileManagerListPage1.body.items[0].id).not.toBe(fileManagerListPage2.body.items[0].id)
+
     const fileManagerGet = await request(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}`)
     expect(fileManagerGet.body.metadata.id).toBe(fileManagerUpload.body.metadata.id)
 
