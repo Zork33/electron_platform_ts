@@ -134,7 +134,13 @@ export class ObjectContainerService {
   }
 
   cleanupExpiredObjects(): number {
-    const expiredCount = this.fileStorage.listFiles(true).filter((file) => file.deleted_at !== null).length
+    const trashedFiles = this.fileStorage
+      .listFiles(true)
+      .filter((file) => file.deleted_at !== null && file.storage_part_name === 'trash')
+    for (const file of trashedFiles) {
+      this.fileStorage.deleteFileById(file.id, true)
+    }
+    const expiredCount = trashedFiles.length
     this.recordCleanup(expiredCount)
     return expiredCount
   }

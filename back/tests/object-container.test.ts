@@ -53,6 +53,7 @@ describe('object container service', () => {
     expect(cleanerInfo.cleanup_log).toHaveLength(1)
     storage.deleteFileByPath('archive', 'docs/readme.txt')
     expect(service.cleanupExpiredObjects()).toBe(1)
+    expect(storage.getFileById(1)).toBeNull()
     service.stopCleaner()
     expect(service.getCleanerInfo().summary.is_running).toBe(false)
   })
