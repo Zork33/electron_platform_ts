@@ -250,4 +250,55 @@ describe('auth api service', () => {
       })
     )
   })
+
+  test('repeat finish calls are rejected as already completed', async () => {
+    const person = persons.create({
+      first_name: 'Repeat',
+      last_name: null,
+      middle_name: null,
+      birth_date: null,
+      description: null,
+      gender_id: null,
+      vector_db_record_id: null,
+      is_vector_synced: false,
+    })
+    users.create({
+      person_id: person.id,
+      auth_email: 'repeat@example.com',
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    })
+
+    const loginStart = await service.startLogin('repeat@example.com')
+    if (!loginStart.ok) throw new Error(loginStart.error)
+    const loginCode = auth.confirmationTokens.get(loginStart.confirmation_token)?.confirm_code ?? ''
+    const firstLoginFinish = service.finishLogin(loginStart.confirmation_token, loginCode)
+    expect(firstLoginFinish).toMatchObject({ verified: true })
+    expect(service.finishLogin(loginStart.confirmation_token, loginCode)).toEqual(
+      expect.objectContaining({
+        ok: false,
+        error_code: 'LOGIN_ALREADY_COMPLETED',
+        status: 422,
+      })
+    )
+
+    const registrationStart = await service.startRegistration({
+      auth_email: 'repeat-new@example.com',
+      first_name: 'Repeat',
+    })
+    if (!registrationStart.ok) throw new Error(registrationStart.error)
+    const registrationCode = auth.confirmationTokens.get(registrationStart.confirmation_token)?.confirm_code ?? ''
+    const firstRegistrationFinish = service.finishRegistration(registrationStart.confirmation_token, registrationCode)
+    expect(firstRegistrationFinish).toMatchObject({ verified: true })
+    expect(service.finishRegistration(registrationStart.confirmation_token, registrationCode)).toEqual(
+      expect.objectContaining({
+        ok: false,
+        error_code: 'REGISTRATION_ALREADY_COMPLETED',
+        status: 422,
+      })
+    )
+  })
 })

@@ -127,7 +127,7 @@ function createUserApiRouter(): Router {
     const confirmCode = String(req.body?.confirm_code ?? '')
     const result = store.authApiService.finishLogin(confirmationToken, confirmCode)
     if (!result || 'ok' in result) {
-      const error = result && 'error' in result ? result.error : 'Invalid confirmation code'
+      const error = result && 'error' in result ? result.error ?? 'Invalid confirmation code' : 'Invalid confirmation code'
       const errorCode = result && 'error_code' in result ? result.error_code : 'VALIDATION_ERROR'
       return result && 'status' in result && result.status === 404 ? notFound(res, error, errorCode) : validationError(res, error, errorCode)
     }
@@ -139,7 +139,7 @@ function createUserApiRouter(): Router {
     const confirmCode = String(req.body?.confirm_code ?? '')
     const result = store.authApiService.finishRegistration(confirmationToken, confirmCode)
     if (!result || 'ok' in result) {
-      const error = result && 'error' in result ? result.error : 'Invalid confirmation code'
+      const error = result && 'error' in result ? result.error ?? 'Invalid confirmation code' : 'Invalid confirmation code'
       const errorCode = result && 'error_code' in result ? result.error_code : 'VALIDATION_ERROR'
       return result && 'status' in result && result.status === 404 ? notFound(res, error, errorCode) : validationError(res, error, errorCode)
     }

@@ -84,6 +84,10 @@ export class AuthApiService {
   }
 
   finishLogin(confirmationToken: string, confirmCode: string) {
+    const current = this.deps.auth.getConfirmation(confirmationToken)
+    if (current?.is_verified) {
+      return { ok: false, error: 'Login already completed', error_code: 'LOGIN_ALREADY_COMPLETED', status: 422 } satisfies FinishAuthResult
+    }
     const verification = this.deps.auth.verifyConfirmation(confirmationToken, confirmCode)
     if (!verification.ok) {
       return { ok: false, ...finishAuthError(verification.error) } satisfies FinishAuthResult
@@ -114,6 +118,15 @@ export class AuthApiService {
   }
 
   finishRegistration(confirmationToken: string, confirmCode: string) {
+    const current = this.deps.auth.getConfirmation(confirmationToken)
+    if (current?.is_user_created) {
+      return {
+        ok: false,
+        error: 'Registration already completed',
+        error_code: 'REGISTRATION_ALREADY_COMPLETED',
+        status: 422,
+      } satisfies FinishAuthResult
+    }
     const verification = this.deps.auth.verifyConfirmation(confirmationToken, confirmCode)
     if (!verification.ok) {
       return { ok: false, ...finishAuthError(verification.error) } satisfies FinishAuthResult

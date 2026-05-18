@@ -250,6 +250,32 @@ describe('http api', () => {
     expect(limitLoginFinish.response.status).toBe(422)
     expect(limitLoginFinish.body.detail.error_code).toBe('VERIFICATION_ATTEMPTS_EXCEEDED')
 
+    const repeatLoginStart = await request('/user-api/auth/login-confirm-code-start', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ auth_email: 'demo@example.com' }),
+    })
+    const repeatLoginCode = store.auth.confirmationTokens.get(repeatLoginStart.body.confirmation_token)?.confirm_code
+    const repeatLoginFinish = await request('/user-api/auth/login-confirm-code-finish', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        confirmation_token: repeatLoginStart.body.confirmation_token,
+        confirm_code: repeatLoginCode,
+      }),
+    })
+    expect(repeatLoginFinish.response.ok).toBe(true)
+    const repeatLoginFinishAgain = await request('/user-api/auth/login-confirm-code-finish', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        confirmation_token: repeatLoginStart.body.confirmation_token,
+        confirm_code: repeatLoginCode,
+      }),
+    })
+    expect(repeatLoginFinishAgain.response.status).toBe(422)
+    expect(repeatLoginFinishAgain.body.detail.error_code).toBe('LOGIN_ALREADY_COMPLETED')
+
     const noPersonUser = store.users.create({
       person_id: null,
       auth_email: 'noperson-http@example.com',
