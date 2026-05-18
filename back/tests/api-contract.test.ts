@@ -152,6 +152,17 @@ describe('backend api contract', () => {
     expect(typeof personSearchItem.score).toBe('number')
     expect(personSearchItem.score).toBeCloseTo(Number((personSearchItem.score as number).toFixed(4)), 4)
 
+    const personSearchThreshold = await request('/user-api/person/vector_search?score_threshold=0.99', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        query: 'contract',
+        limit: 10,
+      }),
+    })
+    expect(personSearchThreshold.response.ok).toBe(true)
+    expect(personSearchThreshold.body).toEqual([])
+
     const userCreate = await request('/user-api/user', {
       method: 'POST',
       headers: jsonHeaders,
