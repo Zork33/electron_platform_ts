@@ -100,7 +100,8 @@ function createUserApiRouter(): Router {
     if (!authEmail) return badRequest(res, 'auth_email is required')
     const result = await store.authApiService.startLogin(authEmail)
     if (!result.ok) {
-      return result.status === 404 ? notFound(res, result.error) : badRequest(res, result.error)
+      if (result.status === 404) return notFound(res, result.error)
+      return validationError(res, result.error, result.status === 422 ? 'USER_ACCESS_DENIED' : 'VALIDATION_ERROR')
     }
     res.json(result)
   })

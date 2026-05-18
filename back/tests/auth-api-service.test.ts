@@ -124,6 +124,24 @@ describe('auth api service', () => {
     expect(auth.confirmationTokens.get(registration.confirmation_token)?.auth_email).toBe('newuser@example.com')
   })
 
+  test('login start rejects users without access', async () => {
+    users.create({
+      person_id: 1,
+      auth_email: 'blocked@example.com',
+      has_access: false,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    })
+
+    expect(await service.startLogin('blocked@example.com')).toEqual({
+      ok: false,
+      error: 'User access denied',
+      status: 422,
+    })
+  })
+
   test('telegram failure does not add an extra send attempt', async () => {
     users.create({
       person_id: null,

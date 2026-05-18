@@ -182,6 +182,24 @@ describe('http api', () => {
     })
     expect(existingRegistrationUser.response.status).toBe(409)
     expect(existingRegistrationUser.body.detail.error_code).toBe('RESOURCE_CONFLICT')
+
+    store.users.create({
+      person_id: 1,
+      auth_email: 'blocked@example.com',
+      has_access: false,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    })
+
+    const blockedLogin = await request('/user-api/auth/login-confirm-code-start', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ auth_email: 'blocked@example.com' }),
+    })
+    expect(blockedLogin.response.status).toBe(422)
+    expect(blockedLogin.body.detail.error_code).toBe('USER_ACCESS_DENIED')
   })
 
   test('auth finish endpoints map python status codes', async () => {

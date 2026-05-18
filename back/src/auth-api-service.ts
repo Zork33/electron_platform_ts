@@ -50,6 +50,7 @@ export class AuthApiService {
     const normalizedAuthEmail = authEmail.trim().toLowerCase()
     const existingUser = this.deps.profile.findUserByEmail(normalizedAuthEmail)
     if (!existingUser) return { ok: false, error: 'User not found', status: 404 }
+    if (!existingUser.has_access) return { ok: false, error: 'User access denied', status: 422 }
     const token = this.deps.auth.createConfirmation('login', { auth_email: normalizedAuthEmail })
     await this.sendConfirmationEmail(token.token, token.kind, token.auth_email, token.confirm_code)
     await this.sendConfirmationTelegram(token.token, token.auth_email, token.confirm_code)
