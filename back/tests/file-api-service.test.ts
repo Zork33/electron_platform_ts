@@ -9,11 +9,7 @@ describe('file api service', () => {
     const service = new FileApiService(storage)
 
     expect(service.listParts()).toEqual({
-      parts: [
-        { code: 'private', name: 'private', is_public: false, description: null },
-        { code: 'public', name: 'public', is_public: true, description: null },
-        { code: 'trash', name: 'trash', is_public: false, description: null },
-      ],
+      parts: ['private', 'public', 'trash'],
       count: 3,
     })
     expect(service.createPart('archive', false)).toEqual({ code: 'archive', name: 'archive', is_public: false, description: null })
@@ -60,11 +56,7 @@ describe('file api service', () => {
     expect(service.getManagedFile(managed.metadata.id)?.metadata.storage_part_name).toBe('archive')
     expect(service.deletePart('archive')?.name).toBe('archive')
     expect(service.getPartCount()).toEqual({
-      parts: [
-        { code: 'private', name: 'private', is_public: false, description: null },
-        { code: 'public', name: 'public', is_public: true, description: null },
-        { code: 'trash', name: 'trash', is_public: false, description: null },
-      ],
+      parts: ['private', 'public', 'trash'],
       count: 3,
     })
   })
