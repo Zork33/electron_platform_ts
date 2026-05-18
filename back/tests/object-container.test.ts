@@ -22,7 +22,11 @@ describe('object container service', () => {
     expect(info.summary.total_categories).toBe(4)
     expect(info.summary.total_objects).toBe(1)
     expect(info.object_list.find((item) => item.category === 'archive')?.object_count).toBe(1)
-    expect(info.object_list.find((item) => item.category === 'archive')?.objects[0].id).toBe('1')
+    expect(info.object_list.find((item) => item.category === 'archive')?.objects[0]).toMatchObject({
+      id: '1',
+      ttl_seconds: -1,
+      expires_at: null,
+    })
     expect(service.getCleanerInfo()).toEqual({
       summary: {
         last_cleanup: null,

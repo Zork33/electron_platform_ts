@@ -60,14 +60,14 @@ export class ObjectContainerService {
   getStorageInfo(): ObjectContainerStorageInfo {
     const objectList = this.fileStorage.getPartNames().map((category) => {
       const objects = this.fileStorage
-        .listFiles(true)
+        .listFiles(false)
         .filter((file) => file.storage_part_name === category)
         .map((file) => ({
           id: String(file.id),
           created_at: file.created_at,
           last_accessed: file.updated_at,
-          ttl_seconds: 86400,
-          expires_at: file.deleted_at ? file.deleted_at : null,
+          ttl_seconds: -1,
+          expires_at: null,
         }))
       return {
         category,
