@@ -547,6 +547,18 @@ describe('http api', () => {
     expect(fileManagerUploadReplace.body.metadata.filename).toBe('file-renamed.txt')
     expect(fileManagerUploadReplace.body.metadata.size_bytes).toBe(Buffer.from('managed file replaced').length)
 
+    const missingPathUpload = await request('/user-api/file-manager/upload', {
+      method: 'POST',
+      body: formData({
+        file: new Blob([Buffer.from('managed file')], { type: 'text/plain' }),
+        storage_part_name: 'private',
+        filename: 'missing-path.txt',
+        ext: 'txt',
+      }),
+    })
+    expect(missingPathUpload.response.status).toBe(422)
+    expect(missingPathUpload.body.detail.error_message).toBe('path is required')
+
     const missingFilenameUpload = await request('/user-api/file-manager/upload', {
       method: 'POST',
       body: formData({

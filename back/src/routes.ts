@@ -483,6 +483,7 @@ function createUserApiRouter(): Router {
     if (!ext) return validationError(res, 'ext is required', 'VALIDATION_ERROR')
     if (!['private', 'public'].includes(storagePartName))
       return validationError(res, `Unknown storage part: ${storagePartName}`, 'VALIDATION_ERROR')
+    if (!path) return validationError(res, 'path is required', 'VALIDATION_ERROR')
     try {
       const result = store.fileApiService.uploadManagedFile({
         storagePartName,
@@ -492,7 +493,7 @@ function createUserApiRouter(): Router {
         ext,
         replaceExisting: req.body?.with_replace === 'true' || req.body?.with_replace === true,
       })
-      if (!result) return badRequest(res, 'path is required')
+      if (!result) return validationError(res, 'path is required', 'VALIDATION_ERROR')
       res.json({ success: true, ...result })
     } catch (error) {
       return badRequest(res, error instanceof Error ? error.message : 'Invalid file upload')
