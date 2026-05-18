@@ -319,7 +319,7 @@ function createUserApiRouter(): Router {
 
   router.patch('/event/:eventId/report_gallery/:storedFileId/rename', (req, res) => {
     const filename = String(req.body?.filename ?? '').trim()
-    if (!filename) return badRequest(res, 'filename is required')
+    if (!filename) return validationError(res, 'filename is required', 'VALIDATION_ERROR')
     const metadata = store.eventService.renameGalleryFile(toNumber(req.params.storedFileId), filename)
     if (!metadata) return notFound(res, 'File not found')
     res.json({ success: true, metadata })

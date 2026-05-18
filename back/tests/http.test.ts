@@ -710,6 +710,17 @@ describe('http api', () => {
     const eventAfterGallery = await request(`/user-api/event/${eventCreate.body.id}`)
     expect(eventAfterGallery.body.report_gallery.length).toBe(1)
 
+    const missingGalleryRenameFilename = await request(
+      `/user-api/event/${eventCreate.body.id}/report_gallery/${galleryUpload.body.metadata.id}/rename`,
+      {
+        method: 'PATCH',
+        headers: jsonHeaders,
+        body: JSON.stringify({}),
+      }
+    )
+    expect(missingGalleryRenameFilename.response.status).toBe(422)
+    expect(missingGalleryRenameFilename.body.detail.error_message).toBe('filename is required')
+
     const galleryRename = await request(
       `/user-api/event/${eventCreate.body.id}/report_gallery/${galleryUpload.body.metadata.id}/rename`,
       {
