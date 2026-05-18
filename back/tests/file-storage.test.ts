@@ -74,4 +74,29 @@ describe('file storage service', () => {
     expect(storage.getPartNames()).toEqual(['private', 'public', 'trash'])
     expect(storage.getPart('trash')?.is_public).toBe(false)
   })
+
+  test('rejects duplicate active file paths unless replacing', () => {
+    const storage = new FileStorageService()
+    storage.reset()
+
+    storage.storeFile({
+      storagePartName: 'public',
+      path: 'docs/readme.txt',
+      filename: 'readme.txt',
+      ext: 'txt',
+      content: Buffer.from('one'),
+      contentType: 'text/plain',
+    })
+
+    expect(() =>
+      storage.storeFile({
+        storagePartName: 'public',
+        path: 'docs/readme.txt',
+        filename: 'readme-v2.txt',
+        ext: 'txt',
+        content: Buffer.from('two'),
+        contentType: 'text/plain',
+      })
+    ).toThrow(/File already exists at path/)
+  })
 })

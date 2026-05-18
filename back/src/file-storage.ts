@@ -68,6 +68,10 @@ export class FileStorageService {
           file.deleted_at === null
       )
 
+    if (existing && !input.replaceExisting) {
+      throw new Error(`File already exists at path: ${input.path}`)
+    }
+
     if (existing && input.replaceExisting) {
       const updated = this.files.patch(existing.id, {
         object_key: existing.object_key,

@@ -273,6 +273,17 @@ describe('http api', () => {
     })
     expect(fileUpload.body.metadata.path).toBe('docs/readme.txt')
 
+    const duplicateFileUpload = await request('/user-api/file-storage/file/upload', {
+      method: 'POST',
+      body: formData({
+        file: new Blob([Buffer.from('hello file 2')], { type: 'text/plain' }),
+        storage_part_name: 'archive',
+        path: 'docs/readme.txt',
+      }),
+    })
+    expect(duplicateFileUpload.response.status).toBe(400)
+    expect(duplicateFileUpload.body.detail.error_message).toContain('File already exists at path')
+
     const fileInfo = await request('/user-api/file-storage/file/info?storage_part_name=archive&path=docs%2Freadme.txt')
     expect(fileInfo.body.file_info.size_bytes).toBe(10)
 

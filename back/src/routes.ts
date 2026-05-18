@@ -358,9 +358,13 @@ function createUserApiRouter(): Router {
     const storagePartName = String(req.body?.storage_part_name ?? 'private')
     const path = String(req.body?.path ?? '')
     if (!path) return badRequest(res, 'path is required')
-    const result = store.fileApiService.uploadFile({ storagePartName, path, file })
-    if (!result) return badRequest(res, 'path is required')
-    res.json({ success: true, ...result })
+    try {
+      const result = store.fileApiService.uploadFile({ storagePartName, path, file })
+      if (!result) return badRequest(res, 'path is required')
+      res.json({ success: true, ...result })
+    } catch (error) {
+      return badRequest(res, error instanceof Error ? error.message : 'Invalid file upload')
+    }
   })
 
   router.get('/file-storage/file/download', (req, res) => {
@@ -411,16 +415,20 @@ function createUserApiRouter(): Router {
     const path = String(req.body?.path ?? '')
     const filename = String(req.body?.filename ?? file.originalname)
     const ext = String(req.body?.ext ?? (filename.includes('.') ? filename.split('.').pop() ?? '' : ''))
-    const result = store.fileApiService.uploadManagedFile({
-      storagePartName,
-      path,
-      file,
-      filename,
-      ext,
-      replaceExisting: req.body?.with_replace === 'true' || req.body?.with_replace === true,
-    })
-    if (!result) return badRequest(res, 'path is required')
-    res.json({ success: true, ...result })
+    try {
+      const result = store.fileApiService.uploadManagedFile({
+        storagePartName,
+        path,
+        file,
+        filename,
+        ext,
+        replaceExisting: req.body?.with_replace === 'true' || req.body?.with_replace === true,
+      })
+      if (!result) return badRequest(res, 'path is required')
+      res.json({ success: true, ...result })
+    } catch (error) {
+      return badRequest(res, error instanceof Error ? error.message : 'Invalid file upload')
+    }
   })
 
   router.get('/file-manager/:id', (req, res) => {
