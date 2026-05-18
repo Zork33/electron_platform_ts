@@ -488,7 +488,7 @@ describe('http api', () => {
     const fileDownload = await request('/user-api/file-storage/file/download?storage_part_name=archive&path=docs%2Freadme.txt')
     expect(Buffer.from(await fileDownload.response.arrayBuffer()).toString()).toBe('hello file')
     expect(fileDownload.response.headers.get('content-disposition')).toContain('attachment;')
-    expect(fileDownload.response.headers.get('content-disposition')).toContain('filename="readme.txt"')
+    expect(fileDownload.response.headers.get('content-disposition')).toBe('attachment; filename=readme.txt')
 
     const fileManagerUpload = await request('/user-api/file-manager/upload', {
       method: 'POST',
@@ -559,8 +559,9 @@ describe('http api', () => {
     const fileManagerDownload = await fetch(`${server.baseUrl}/user-api/file-manager/${fileManagerUpload.body.metadata.id}/download`)
     expect(Buffer.from(await fileManagerDownload.arrayBuffer()).toString()).toBe('managed file 2')
     const expectedDownloadName = `${fileManagerReplace.body.metadata.filename}.${fileManagerReplace.body.metadata.ext}`
-    expect(fileManagerDownload.headers.get('content-disposition')).toContain('attachment;')
-    expect(fileManagerDownload.headers.get('content-disposition')).toBe(`attachment; filename="${expectedDownloadName}"`)
+    expect(fileManagerDownload.headers.get('content-disposition')).toBe(
+      `attachment; filename="${expectedDownloadName}"; filename*=UTF-8''${encodeURIComponent(expectedDownloadName)}`
+    )
 
     const unicodeFileManagerUpload = await request('/user-api/file-manager/upload', {
       method: 'POST',
@@ -575,7 +576,11 @@ describe('http api', () => {
     const unicodeFileManagerDownload = await fetch(
       `${server.baseUrl}/user-api/file-manager/${unicodeFileManagerUpload.body.metadata.id}/download`
     )
-    expect(unicodeFileManagerDownload.headers.get('content-disposition')).toBe('attachment; filename="download.txt"')
+    expect(unicodeFileManagerDownload.headers.get('content-disposition')).toBe(
+      `attachment; filename="download.txt"; filename*=UTF-8''${encodeURIComponent(
+        `${unicodeFileManagerUpload.body.metadata.filename}.${unicodeFileManagerUpload.body.metadata.ext}`
+      )}`
+    )
 
     const fileManagerUrl = await request(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}/url?expires_in=123`)
     expect(fileManagerUrl.body.url).toContain(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}/download`)
