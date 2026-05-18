@@ -422,6 +422,14 @@ describe('http api', () => {
     expect(emailFilter.body).toHaveLength(1)
     expect(emailFilter.body[0].address).toBe('beta@example.com')
 
+    const invalidEmailOrderDirection = await request('/user-api/email?order_direction=sideways')
+    expect(invalidEmailOrderDirection.response.status).toBe(400)
+    expect(invalidEmailOrderDirection.body.detail.error_message).toContain("Order direction must be 'asc' or 'desc'")
+
+    const invalidEmailLimit = await request('/user-api/email?limit=0')
+    expect(invalidEmailLimit.response.status).toBe(422)
+    expect(invalidEmailLimit.body.detail.error_message).toContain('limit must be between 1 and 1000')
+
     const avatar = await request('/user-api/user/1/avatar/upload', {
       method: 'POST',
       body: formData({ file: new File([pngBuffer], 'avatar.png', { type: 'image/png' }) }),
