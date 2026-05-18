@@ -203,8 +203,7 @@ export class AuthService {
     record.user_creation_at = nowIso()
     record.is_user_created = true
     record.user_creation_error = null
-    this.deps.onChange?.()
-    return record
+    return this.appendConfirmationHistory(record, 'user_creation', true, null)
   }
 
   markConfirmationUserCreationFailed(token: string, error: string): ConfirmationTokenRecord | null {
@@ -213,8 +212,7 @@ export class AuthService {
     record.user_creation_at = nowIso()
     record.is_user_created = false
     record.user_creation_error = error
-    this.deps.onChange?.()
-    return record
+    return this.appendConfirmationHistory(record, 'user_creation', false, error)
   }
 
   markConfirmationAccessTokenCreated(token: string, ok: boolean, error: string | null = null): ConfirmationTokenRecord | null {
@@ -223,8 +221,7 @@ export class AuthService {
     record.access_token_created_at = nowIso()
     record.is_access_token_created = ok
     record.access_token_error = error
-    this.deps.onChange?.()
-    return record
+    return this.appendConfirmationHistory(record, 'access_token_creation', ok, error)
   }
 
   markConfirmationAccessTokenCreationFailed(token: string, error: string): ConfirmationTokenRecord | null {

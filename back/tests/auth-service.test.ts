@@ -66,9 +66,16 @@ describe('auth service', () => {
 
   test('tracks creation failure metadata on confirmation records', () => {
     const confirmation = auth.createConfirmation('register', { auth_email: 'demo@example.com' })
-    expect(auth.markConfirmationUserCreationFailed(confirmation.token, 'User not found')?.user_creation_error).toBe('User not found')
-    expect(auth.markConfirmationAccessTokenCreationFailed(confirmation.token, 'Token creation failed')?.access_token_error).toBe(
-      'Token creation failed'
+    const creationFailed = auth.markConfirmationUserCreationFailed(confirmation.token, 'User not found')
+    expect(creationFailed?.user_creation_error).toBe('User not found')
+    expect(creationFailed?.history.at(-1)).toEqual(
+      expect.objectContaining({ action: 'user_creation', ok: false, error_message: 'User not found' })
+    )
+
+    const tokenFailed = auth.markConfirmationAccessTokenCreationFailed(confirmation.token, 'Token creation failed')
+    expect(tokenFailed?.access_token_error).toBe('Token creation failed')
+    expect(tokenFailed?.history.at(-1)).toEqual(
+      expect.objectContaining({ action: 'access_token_creation', ok: false, error_message: 'Token creation failed' })
     )
   })
 })

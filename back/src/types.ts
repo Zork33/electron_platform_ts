@@ -124,7 +124,7 @@ export interface ConfirmationTokenRecord {
 }
 
 export interface ConfirmationHistoryEntry {
-  action: 'create' | 'send' | 'verify'
+  action: 'create' | 'send' | 'verify' | 'user_creation' | 'access_token_creation'
   timestamp: string
   ok: boolean
   error_message: string | null
