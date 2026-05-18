@@ -175,6 +175,14 @@ describe('http api', () => {
   })
 
   test('auth start endpoints map python status codes', async () => {
+    const missingLoginEmail = await request('/user-api/auth/login-confirm-code-start', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({}),
+    })
+    expect(missingLoginEmail.response.status).toBe(422)
+    expect(missingLoginEmail.body.detail.error_code).toBe('VALIDATION_ERROR')
+
     const invalidLoginEmail = await request('/user-api/auth/login-confirm-code-start', {
       method: 'POST',
       headers: jsonHeaders,

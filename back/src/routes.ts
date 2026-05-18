@@ -97,7 +97,7 @@ function createUserApiRouter(): Router {
 
   router.post('/auth/login-confirm-code-start', async (req, res) => {
     const authEmail = String(req.body?.auth_email ?? '').trim()
-    if (!authEmail) return badRequest(res, 'auth_email is required')
+    if (!authEmail) return validationError(res, 'auth_email is required', 'VALIDATION_ERROR')
     if (!isEmailAddress(authEmail)) return validationError(res, 'auth_email is invalid', 'VALIDATION_ERROR')
     const result = await store.authApiService.startLogin(authEmail)
     if (!result.ok) {
@@ -110,7 +110,8 @@ function createUserApiRouter(): Router {
   router.post('/auth/registration-confirm-code-start', async (req, res) => {
     const authEmail = String(req.body?.auth_email ?? '').trim()
     const firstName = String(req.body?.first_name ?? '').trim()
-    if (!authEmail || !firstName) return badRequest(res, 'auth_email and first_name are required')
+    if (!authEmail) return validationError(res, 'auth_email is required', 'VALIDATION_ERROR')
+    if (!firstName) return validationError(res, 'first_name is required', 'VALIDATION_ERROR')
     if (!isEmailAddress(authEmail)) return validationError(res, 'auth_email is invalid', 'VALIDATION_ERROR')
     const result = await store.authApiService.startRegistration({
       auth_email: authEmail,
