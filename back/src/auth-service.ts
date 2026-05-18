@@ -207,6 +207,16 @@ export class AuthService {
     return record
   }
 
+  markConfirmationUserCreationFailed(token: string, error: string): ConfirmationTokenRecord | null {
+    const record = this.getConfirmation(token)
+    if (!record) return null
+    record.user_creation_at = nowIso()
+    record.is_user_created = false
+    record.user_creation_error = error
+    this.deps.onChange?.()
+    return record
+  }
+
   markConfirmationAccessTokenCreated(token: string, ok: boolean, error: string | null = null): ConfirmationTokenRecord | null {
     const record = this.getConfirmation(token)
     if (!record) return null
@@ -215,6 +225,10 @@ export class AuthService {
     record.access_token_error = error
     this.deps.onChange?.()
     return record
+  }
+
+  markConfirmationAccessTokenCreationFailed(token: string, error: string): ConfirmationTokenRecord | null {
+    return this.markConfirmationAccessTokenCreated(token, false, error)
   }
 
   issueAccessToken(userId: number): AccessTokenRecord {

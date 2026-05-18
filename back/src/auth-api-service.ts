@@ -60,7 +60,11 @@ export class AuthApiService {
     const verification = this.deps.auth.verifyConfirmation(confirmationToken, confirmCode)
     if (!verification.ok) return verification
     const user = this.deps.profile.findUserByEmail(verification.record.auth_email)
-    if (!user) return { ok: false, error: 'User not found' }
+    if (!user) {
+      this.deps.auth.markConfirmationUserCreationFailed(confirmationToken, 'User not found')
+      this.deps.auth.markConfirmationAccessTokenCreationFailed(confirmationToken, 'User not found')
+      return { ok: false, error: 'User not found' }
+    }
     this.deps.auth.markConfirmationUserCreated(confirmationToken, user.id)
     const access = this.deps.auth.issueAccessToken(user.id)
     this.deps.auth.markConfirmationAccessTokenCreated(confirmationToken, true)
@@ -77,7 +81,11 @@ export class AuthApiService {
     const verification = this.deps.auth.verifyConfirmation(confirmationToken, confirmCode)
     if (!verification.ok) return verification
     const existingUser = this.deps.profile.findUserByEmail(verification.record.auth_email)
-    if (existingUser) return { ok: false, error: 'User already exists' }
+    if (existingUser) {
+      this.deps.auth.markConfirmationUserCreationFailed(confirmationToken, 'User already exists')
+      this.deps.auth.markConfirmationAccessTokenCreationFailed(confirmationToken, 'User already exists')
+      return { ok: false, error: 'User already exists' }
+    }
     const user = this.deps.profile.ensureUserByEmail(verification.record.auth_email, {
       first_name: verification.record.first_name,
       last_name: verification.record.last_name,

@@ -63,4 +63,12 @@ describe('auth service', () => {
     const deleted = auth.issueAccessToken(1)
     expect(auth.getUserByAccessToken(deleted.token)).toBeNull()
   })
+
+  test('tracks creation failure metadata on confirmation records', () => {
+    const confirmation = auth.createConfirmation('register', { auth_email: 'demo@example.com' })
+    expect(auth.markConfirmationUserCreationFailed(confirmation.token, 'User not found')?.user_creation_error).toBe('User not found')
+    expect(auth.markConfirmationAccessTokenCreationFailed(confirmation.token, 'Token creation failed')?.access_token_error).toBe(
+      'Token creation failed'
+    )
+  })
 })
