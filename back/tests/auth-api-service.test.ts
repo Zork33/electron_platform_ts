@@ -87,4 +87,30 @@ describe('auth api service', () => {
     expect(service.logout(token)).toBe(true)
     expect(service.logoutAll(token)).toBeNull()
   })
+
+  test('normalizes auth email before confirmation flow', async () => {
+    users.create({
+      person_id: null,
+      auth_email: 'mixed@example.com',
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    })
+
+    const start = await service.startLogin('MIXED@EXAMPLE.COM')
+    expect(start.ok).toBe(true)
+    if (!start.ok) throw new Error(start.error)
+    expect(auth.confirmationTokens.get(start.confirmation_token)?.auth_email).toBe('mixed@example.com')
+
+    const registration = await service.startRegistration({
+      auth_email: 'NEWUSER@EXAMPLE.COM',
+      first_name: 'New',
+      last_name: 'User',
+    })
+    expect(registration.ok).toBe(true)
+    if (!registration.ok) throw new Error(registration.error)
+    expect(auth.confirmationTokens.get(registration.confirmation_token)?.auth_email).toBe('newuser@example.com')
+  })
 })

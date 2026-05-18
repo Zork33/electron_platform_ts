@@ -76,7 +76,10 @@ export class ProfileService {
   }
 
   findUserByEmail(authEmail: string) {
-    const user = this.deps.users.all().find((candidate) => candidate.auth_email === authEmail && candidate.deleted_at === null)
+    const normalized = authEmail.trim().toLowerCase()
+    const user = this.deps.users.all().find(
+      (candidate) => candidate.auth_email?.trim().toLowerCase() === normalized && candidate.deleted_at === null
+    )
     return user ? this.serializeUser(user) : null
   }
 
@@ -103,7 +106,10 @@ export class ProfileService {
     authEmail: string,
     personData?: { first_name?: string | null; last_name?: string | null; middle_name?: string | null }
   ): User {
-    const existing = this.deps.users.all().find((user) => user.auth_email === authEmail && user.deleted_at === null)
+    const normalizedAuthEmail = authEmail.trim().toLowerCase()
+    const existing = this.deps.users.all().find(
+      (user) => user.auth_email?.trim().toLowerCase() === normalizedAuthEmail && user.deleted_at === null
+    )
     if (existing) return existing
 
     const person = this.deps.persons.create({
@@ -121,7 +127,7 @@ export class ProfileService {
 
     return this.deps.users.create({
       person_id: person.id,
-      auth_email: authEmail,
+      auth_email: normalizedAuthEmail,
       has_access: true,
       is_admin: false,
       session_expires_at: sessionExpiresAt,
