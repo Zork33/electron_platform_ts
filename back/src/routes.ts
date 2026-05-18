@@ -475,8 +475,10 @@ function createUserApiRouter(): Router {
 
   router.get('/file-manager/list', (req, res) => {
     const includeDeleted = parseIncludeDeleted(req.query.include_deleted)
-    const pageCount = Math.max(1, toNumber(req.query.page_count, 20))
-    const pageNumber = Math.max(1, toNumber(req.query.page_number, 1))
+    const pageCount = toNumber(req.query.page_count, 20)
+    const pageNumber = toNumber(req.query.page_number, 1)
+    if (pageCount < 0) return validationError(res, 'page_count must be greater than or equal to 0', 'VALIDATION_ERROR')
+    if (pageNumber <= 0) return validationError(res, 'page_number must be greater than 0', 'VALIDATION_ERROR')
     res.json({ success: true, ...store.fileApiService.listFiles(includeDeleted, pageCount, pageNumber) })
   })
 

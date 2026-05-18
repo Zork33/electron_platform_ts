@@ -77,10 +77,10 @@ export class FileApiService {
   }
 
   listFiles(includeDeleted = false, pageCount = 20, pageNumber = 1) {
-    const items = this.fileStorage
-      .listFiles(includeDeleted)
-      .slice((pageNumber - 1) * pageCount, pageNumber * pageCount)
-      .map((file) => this.serializeMetadata(file))
+    const files = this.fileStorage.listFiles(includeDeleted)
+    const pagedFiles =
+      pageCount === 0 ? files : files.slice((pageNumber - 1) * pageCount, pageNumber * pageCount)
+    const items = pagedFiles.map((file) => this.serializeMetadata(file))
     return { items }
   }
 

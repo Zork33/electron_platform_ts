@@ -35,6 +35,7 @@ describe('file api service', () => {
     expect(service.getFileInfo('archive', 'docs/readme.txt')?.file_info.size_bytes).toBe(5)
     expect(service.getPresignedUrl('archive', 'docs/readme.txt', 3600)?.expires_in).toBe(3600)
     expect(service.listFiles(false, 10, 1).items).toHaveLength(1)
+    expect(service.listFiles(false, 0, 1).items).toHaveLength(1)
 
     const managed = service.uploadManagedFile({
       storagePartName: 'archive',

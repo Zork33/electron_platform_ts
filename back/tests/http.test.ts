@@ -622,6 +622,9 @@ describe('http api', () => {
     expect(fileManagerListPage2.body.items).toHaveLength(1)
     expect(fileManagerListPage1.body.items[0].id).not.toBe(fileManagerListPage2.body.items[0].id)
 
+    const fileManagerListNoPagination = await request('/user-api/file-manager/list?page_count=0&page_number=1')
+    expect(fileManagerListNoPagination.body.items.length).toBeGreaterThanOrEqual(fileManagerList.body.items.length)
+
     const fileManagerGet = await request(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}`)
     expect(fileManagerGet.body.metadata.id).toBe(fileManagerUpload.body.metadata.id)
 
