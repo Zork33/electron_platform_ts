@@ -19,7 +19,7 @@ describe('object container service', () => {
     const service = new ObjectContainerService(storage)
     const info = service.getStorageInfo()
 
-    expect(info.summary.total_categories).toBe(3)
+    expect(info.summary.total_categories).toBe(4)
     expect(info.summary.total_objects).toBe(1)
     expect(info.object_list.find((item) => item.category === 'archive')?.object_count).toBe(1)
     expect(info.object_list.find((item) => item.category === 'archive')?.objects[0].id).toBe('1')

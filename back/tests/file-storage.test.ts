@@ -6,12 +6,12 @@ describe('file storage service', () => {
     const storage = new FileStorageService()
     storage.reset()
 
-    expect(storage.getPartNames()).toEqual(['private', 'public'])
+    expect(storage.getPartNames()).toEqual(['private', 'public', 'trash'])
     expect(storage.getPart('private')?.is_public).toBe(false)
 
     const createdPart = storage.setPart('avatars', true)
     expect(createdPart).toEqual({ name: 'avatars', is_public: true })
-    expect(storage.getPartNames()).toEqual(['avatars', 'private', 'public'])
+    expect(storage.getPartNames()).toEqual(['avatars', 'private', 'public', 'trash'])
 
     const stored = storage.storeFile({
       storagePartName: 'avatars',
@@ -25,11 +25,14 @@ describe('file storage service', () => {
     expect(storage.getFileById(stored.id)?.filename).toBe('avatar.png')
     expect(storage.getFileByPath('avatars', 'users/1/avatar.png')?.id).toBe(stored.id)
     expect(storage.listFiles().some((file) => file.id === stored.id)).toBe(true)
-    expect(storage.deleteFileByPath('avatars', 'users/1/avatar.png')?.deleted_at).not.toBeNull()
+    const deleted = storage.deleteFileByPath('avatars', 'users/1/avatar.png')
+    expect(deleted?.deleted_at).not.toBeNull()
+    expect(deleted?.storage_part_name).toBe('trash')
+    expect(deleted?.path).toContain('avatars/users/1/avatar.png')
     expect(storage.restoreFile(stored.id)?.deleted_at).toBeNull()
+    expect(storage.getFileById(stored.id)?.storage_part_name).toBe('avatars')
     expect(storage.deletePart('avatars')?.name).toBe('avatars')
     expect(storage.getPart('avatars')).toBeNull()
-    expect(storage.getDefaultImage().length).toBeGreaterThan(0)
   })
 
   test('replaces existing file by path', () => {

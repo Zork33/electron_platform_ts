@@ -54,6 +54,7 @@ export class FileStorageService {
     this.fileParts.clear()
     this.fileParts.set('private', { name: 'private', is_public: false })
     this.fileParts.set('public', { name: 'public', is_public: true })
+    this.fileParts.set('trash', { name: 'trash', is_public: false })
     this.deps.onChange?.()
   }
 
@@ -126,9 +127,7 @@ export class FileStorageService {
   deleteFileByPath(storagePartName: string, path: string): StoredFileRecord | null {
     const file = this.getFileByPath(storagePartName, path)
     if (!file) return null
-    const deleted = this.files.softDelete(file.id)
-    if (deleted) this.deps.onChange?.()
-    return deleted
+    return this.moveFileToTrash(file.id)
   }
 
   deleteFileById(id: number, hard = false): StoredFileRecord | null {
@@ -140,13 +139,13 @@ export class FileStorageService {
       this.deps.onChange?.()
       return file
     }
-    const deleted = this.files.softDelete(id)
-    if (deleted) this.deps.onChange?.()
-    return deleted
+    return this.moveFileToTrash(id)
   }
 
   restoreFile(id: number): StoredFileRecord | null {
-    const restored = this.files.restore(id)
+    const file = this.files.get(id)
+    if (!file || file.deleted_at === null) return null
+    const restored = this.restoreFromTrash(file)
     if (restored) this.deps.onChange?.()
     return restored
   }
@@ -191,6 +190,49 @@ export class FileStorageService {
     this.fileParts.set(name, created)
     this.deps.onChange?.()
     return created
+  }
+
+  moveFileToTrash(id: number): StoredFileRecord | null {
+    const file = this.files.get(id)
+    if (!file || file.deleted_at !== null) return null
+    const trashPart = this.getOrCreatePart('trash')
+    const now = nowIso()
+    const deleted = this.files.patch(id, {
+      file_storage_part_id: trashPart.name.length,
+      storage_part_name: 'trash',
+      path: `${file.id}/${file.storage_part_name}/${file.path}`,
+      deleted_at: now,
+    } as Partial<StoredFileRecord>)
+    if (deleted) this.deps.onChange?.()
+    return deleted
+  }
+
+  restoreFromTrash(file: StoredFileRecord): StoredFileRecord | null {
+    if (file.deleted_at === null || file.storage_part_name !== 'trash') return null
+    const parts = file.path.split('/', 3)
+    if (parts.length < 3) return null
+    const originalPartName = parts[1]
+    const originalPath = parts[2]
+    const originalPart = this.fileParts.get(originalPartName)
+    if (!originalPart) return null
+
+    let restoredPath = originalPath
+    const existing = this.getFileByPath(originalPartName, restoredPath)
+    if (existing) {
+      const dotIndex = originalPath.lastIndexOf('.')
+      const base = dotIndex >= 0 ? originalPath.slice(0, dotIndex) : originalPath
+      const ext = dotIndex >= 0 ? originalPath.slice(dotIndex) : ''
+      restoredPath = `${base}_restored_${file.id}${ext}`
+    }
+
+    const restored = this.files.patch(file.id, {
+      file_storage_part_id: originalPart.name.length,
+      storage_part_name: originalPartName,
+      path: restoredPath,
+      deleted_at: null,
+    } as Partial<StoredFileRecord>)
+    if (restored) this.deps.onChange?.()
+    return restored
   }
 
   snapshot(): FileStorageSnapshot {
