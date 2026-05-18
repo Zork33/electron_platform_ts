@@ -694,6 +694,13 @@ describe('http api', () => {
 
     const partList = await request('/dev-api/file-storage/part/')
     expect(partList.body.count).toBeGreaterThanOrEqual(3)
+    expect(partList.body.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'private', name: 'private', is_public: false }),
+        expect.objectContaining({ code: 'public', name: 'public', is_public: true }),
+        expect.objectContaining({ code: 'trash', name: 'trash', is_public: false }),
+      ])
+    )
 
     const partUpdate = await request('/dev-api/file-storage/part/archive/public', {
       method: 'PATCH',
