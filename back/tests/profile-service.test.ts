@@ -4,6 +4,11 @@ import { CrudCollection } from '../src/record-collection.js'
 import { ProfileService } from '../src/profile-service.js'
 import type { Person, User } from '../src/types.js'
 
+const pngBuffer = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2k8Q8AAAAASUVORK5CYII=',
+  'base64'
+)
+
 describe('profile service', () => {
   test('handles person, user and avatar flows', () => {
     const persons = new CrudCollection<Person>(() => ({
@@ -45,7 +50,7 @@ describe('profile service', () => {
 
     const avatar = service.uploadAvatar(user.id, {
       originalname: 'avatar.png',
-      buffer: Buffer.from('avatar'),
+      buffer: pngBuffer,
       mimetype: 'image/png',
     })
     expect(avatar?.avatar?.filename).toBe('avatar_1')
@@ -54,7 +59,7 @@ describe('profile service', () => {
     expect(service.getAvatarContent(user.id)?.contentType).toBe('image/png')
     const replaced = service.replaceAvatar(user.id, {
       originalname: 'avatar2.png',
-      buffer: Buffer.from('avatar2'),
+      buffer: pngBuffer,
       mimetype: 'image/png',
     })
     expect(replaced?.avatar?.id).toBe(avatar?.avatar?.id)
@@ -107,5 +112,12 @@ describe('profile service', () => {
         mimetype: 'image/png',
       })
     ).toThrow(/Avatar file is empty/)
+    expect(() =>
+      service.uploadAvatar(user.id, {
+        originalname: 'avatar.png',
+        buffer: Buffer.from('not-a-png'),
+        mimetype: 'image/png',
+      })
+    ).toThrow(/Invalid avatar image content/)
   })
 })

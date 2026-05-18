@@ -7,6 +7,10 @@ import { startTestServer } from './test-helpers.js'
 import { store } from '../src/store.js'
 
 const jsonHeaders = { 'content-type': 'application/json' }
+const pngBuffer = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2k8Q8AAAAASUVORK5CYII=',
+  'base64'
+)
 
 let server: Awaited<ReturnType<typeof startTestServer>> | null = null
 let currentSocket: WebSocket | null = null
@@ -368,7 +372,7 @@ describe('http api', () => {
 
     const avatar = await request('/user-api/user/1/avatar/upload', {
       method: 'POST',
-      body: formData({ file: new File([Buffer.from('avatar')], 'avatar.png', { type: 'image/png' }) }),
+      body: formData({ file: new File([pngBuffer], 'avatar.png', { type: 'image/png' }) }),
     })
     expect(avatar.body.avatar.id).toBeTruthy()
     expect(avatar.body.avatar.filename).toBe('avatar_1')
@@ -376,10 +380,17 @@ describe('http api', () => {
 
     const avatarReplace = await request('/user-api/user/1/avatar/replace', {
       method: 'PUT',
-      body: formData({ file: new File([Buffer.from('avatar-2')], 'avatar.png', { type: 'image/png' }) }),
+      body: formData({ file: new File([pngBuffer], 'avatar.png', { type: 'image/png' }) }),
     })
     expect(avatarReplace.body.avatar.id).toBeTruthy()
     expect(avatarReplace.body.avatar.id).toBe(avatar.body.avatar.id)
+
+    const invalidAvatarUpload = await request('/user-api/user/1/avatar/upload', {
+      method: 'POST',
+      body: formData({ file: new File([Buffer.from('not-a-png')], 'avatar.png', { type: 'image/png' }) }),
+    })
+    expect(invalidAvatarUpload.response.status).toBe(400)
+    expect(invalidAvatarUpload.body.detail.error_message).toContain('Invalid avatar image content')
 
     if (!server) throw new Error('server is not started')
     const avatarContent = await fetch(`${server.baseUrl}/user-api/user/1/avatar/content`)
