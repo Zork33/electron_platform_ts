@@ -391,7 +391,8 @@ function createUserApiRouter(): Router {
   router.post('/file-storage/file/upload', upload.single('file'), (req, res) => {
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const storagePartName = String(req.body?.storage_part_name ?? 'private')
+    const storagePartName = String(req.body?.storage_part_name ?? '')
+    if (!storagePartName) return badRequest(res, 'storage_part_name is required')
     const path = String(req.body?.path ?? '')
     if (!path) return badRequest(res, 'path is required')
     if (!store.fileApiService.getPart(storagePartName)) return notFound(res, `Storage part '${storagePartName}' not found`)

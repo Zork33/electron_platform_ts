@@ -446,6 +446,16 @@ describe('http api', () => {
     expect(fileUpload.body.size_bytes).toBe(Buffer.from('hello file').length)
     expect(fileUpload.body.etag).toBeTruthy()
 
+    const missingStoragePartNameUpload = await request('/user-api/file-storage/file/upload', {
+      method: 'POST',
+      body: formData({
+        file: new Blob([Buffer.from('hello file')], { type: 'text/plain' }),
+        path: 'docs/missing-part-name.txt',
+      }),
+    })
+    expect(missingStoragePartNameUpload.response.status).toBe(400)
+    expect(missingStoragePartNameUpload.body.detail.error_message).toBe('storage_part_name is required')
+
     const missingStoragePartUpload = await request('/user-api/file-storage/file/upload', {
       method: 'POST',
       body: formData({
