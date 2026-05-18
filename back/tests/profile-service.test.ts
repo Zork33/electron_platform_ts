@@ -46,15 +46,62 @@ describe('profile service', () => {
       buffer: Buffer.from('avatar'),
       mimetype: 'image/png',
     })
-    expect(avatar?.avatar?.filename).toBe('avatar.png')
+    expect(avatar?.avatar?.filename).toBe('avatar_1')
+    expect(avatar?.avatar?.path).toBe('user/1/avatar/avatar_1.png')
+    expect(avatar?.avatar?.ext).toBe('png')
     expect(service.getAvatarContent(user.id)?.contentType).toBe('image/png')
-    expect(service.replaceAvatar(user.id, {
+    const replaced = service.replaceAvatar(user.id, {
       originalname: 'avatar2.png',
       buffer: Buffer.from('avatar2'),
       mimetype: 'image/png',
-    })?.avatar?.filename).toBe('avatar2.png')
+    })
+    expect(replaced?.avatar?.id).toBe(avatar?.avatar?.id)
+    expect(replaced?.avatar?.filename).toBe('avatar_1')
     expect(service.clearAvatar(user.id)?.avatar).toBeNull()
+    expect(fileStorage.getFileById(avatar!.avatar!.id)?.deleted_at).not.toBeNull()
     expect(service.deleteUser(user.id)?.deleted_at).not.toBeNull()
     expect(service.deletePerson(person.id)?.deleted_at).not.toBeNull()
+  })
+
+  test('rejects unsupported avatar input', () => {
+    const persons = new CrudCollection<Person>(() => ({
+      first_name: '',
+      last_name: null,
+      middle_name: null,
+      birth_date: null,
+      description: null,
+      gender_id: null,
+      vector_db_record_id: null,
+      is_vector_synced: false,
+    }))
+    const users = new CrudCollection<User>(() => ({
+      person_id: null,
+      auth_email: null,
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      auth_session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    }))
+    const fileStorage = new FileStorageService()
+    fileStorage.reset()
+    const service = new ProfileService({ persons, users, fileStorage })
+    const user = service.createUser({ auth_email: 'avatar@example.com' })
+
+    expect(() =>
+      service.uploadAvatar(user.id, {
+        originalname: 'avatar.txt',
+        buffer: Buffer.from('avatar'),
+        mimetype: 'text/plain',
+      })
+    ).toThrow(/Unsupported avatar extension/)
+    expect(() =>
+      service.uploadAvatar(user.id, {
+        originalname: 'avatar.png',
+        buffer: Buffer.alloc(0),
+        mimetype: 'image/png',
+      })
+    ).toThrow(/Avatar file is empty/)
   })
 })

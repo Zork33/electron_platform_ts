@@ -296,17 +296,25 @@ function createUserApiRouter(): Router {
   router.post('/user/:id/avatar/upload', upload.single('file'), (req, res) => {
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const user = store.profileService.uploadAvatar(toNumber(req.params.id), file)
-    if (!user) return notFound(res, 'User not found')
-    res.json(user)
+    try {
+      const user = store.profileService.uploadAvatar(toNumber(req.params.id), file)
+      if (!user) return notFound(res, 'User not found')
+      res.json(user)
+    } catch (error) {
+      return badRequest(res, error instanceof Error ? error.message : 'Invalid avatar file')
+    }
   })
 
   router.put('/user/:id/avatar/replace', upload.single('file'), (req, res) => {
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const user = store.profileService.replaceAvatar(toNumber(req.params.id), file)
-    if (!user) return notFound(res, 'User not found')
-    res.json(user)
+    try {
+      const user = store.profileService.replaceAvatar(toNumber(req.params.id), file)
+      if (!user) return notFound(res, 'User not found')
+      res.json(user)
+    } catch (error) {
+      return badRequest(res, error instanceof Error ? error.message : 'Invalid avatar file')
+    }
   })
 
   router.delete('/user/:id/avatar', (req, res) => {
@@ -316,8 +324,11 @@ function createUserApiRouter(): Router {
   })
 
   router.get('/user/:id/avatar/content', (req, res) => {
-    const avatar = store.profileService.getAvatarContent(toNumber(req.params.id))
-    if (!avatar) return notFound(res, 'User not found')
+    const user = store.profileService.getUser(toNumber(req.params.id))
+    if (!user) return notFound(res, 'User not found')
+    const avatar = store.profileService.getAvatarContent(user.id)
+    if (!avatar) return notFound(res, 'Avatar not found')
+    res.setHeader('Cache-Control', 'no-store')
     res.setHeader('Content-Type', avatar.contentType)
     res.send(avatar.content)
   })

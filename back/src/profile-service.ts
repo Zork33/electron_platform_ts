@@ -3,6 +3,8 @@ import type { FileStorageService } from './file-storage.js'
 import type { CurrentUserResponse, Person, StoredFileRecord, User } from './types.js'
 import { searchPersons } from './logic/process/person/vector_search.js'
 
+const ALLOWED_AVATAR_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp'])
+
 export interface AvatarMetadata {
   id: number
   file_storage_part_id: number
@@ -153,38 +155,34 @@ export class ProfileService {
   uploadAvatar(userId: number, file: { originalname: string; buffer: Buffer; mimetype: string }) {
     const user = this.deps.users.get(userId)
     if (!user) return null
+    const prepared = this.prepareAvatarUpload(userId, file)
     const stored = this.deps.fileStorage.storeFile({
       storagePartName: 'avatars',
-      path: `users/${user.id}/avatar/${file.originalname}`,
-      filename: file.originalname,
-      ext: file.originalname.includes('.') ? file.originalname.split('.').pop() ?? '' : '',
-      content: file.buffer,
-      contentType: file.mimetype,
+      path: prepared.path,
+      filename: prepared.filename,
+      ext: prepared.ext,
+      content: prepared.content,
+      contentType: prepared.contentType,
+      replaceExisting: true,
     })
-    this.deps.users.patch(user.id, { avatar_id: stored.id })
+    this.deps.users.patch(user.id, {
+      avatar_id: stored.id,
+    })
     return this.serializeUser(this.deps.users.get(user.id) ?? user)
   }
 
   replaceAvatar(userId: number, file: { originalname: string; buffer: Buffer; mimetype: string }) {
-    const user = this.deps.users.get(userId)
-    if (!user) return null
-    const stored = this.deps.fileStorage.storeFile({
-      storagePartName: 'avatars',
-      path: `users/${user.id}/avatar/${file.originalname}`,
-      filename: file.originalname,
-      ext: file.originalname.includes('.') ? file.originalname.split('.').pop() ?? '' : '',
-      content: file.buffer,
-      contentType: file.mimetype,
-      replaceExisting: true,
-    })
-    this.deps.users.patch(user.id, { avatar_id: stored.id })
-    return this.serializeUser(this.deps.users.get(user.id) ?? user)
+    return this.uploadAvatar(userId, file)
   }
 
   clearAvatar(userId: number) {
     const user = this.deps.users.get(userId)
     if (!user) return null
+    const previousAvatarId = user.avatar_id
     this.deps.users.patch(user.id, { avatar_id: null })
+    if (previousAvatarId) {
+      void this.deps.fileStorage.deleteFileById(previousAvatarId)
+    }
     return this.serializeUser(this.deps.users.get(user.id) ?? user)
   }
 
@@ -192,9 +190,10 @@ export class ProfileService {
     const user = this.deps.users.get(userId)
     if (!user) return null
     const file = user.avatar_id ? this.deps.fileStorage.getFileById(user.avatar_id) : null
+    if (!file) return null
     return {
-      content: file?.content ?? this.deps.fileStorage.getDefaultImage(),
-      contentType: file?.content_type || 'image/png',
+      content: file.content,
+      contentType: this.resolveAvatarContentType(file.ext, file.content_type),
     }
   }
 
@@ -241,6 +240,47 @@ export class ProfileService {
       )
     } catch {
       return persons
+    }
+  }
+
+  private prepareAvatarUpload(
+    userId: number,
+    file: { originalname: string; buffer: Buffer; mimetype: string }
+  ): { path: string; filename: string; ext: string; content: Buffer; contentType: string | null } {
+    const ext = this.resolveAvatarExtension(file.originalname)
+    if (!ALLOWED_AVATAR_EXTENSIONS.has(ext)) {
+      throw new Error(`Unsupported avatar extension: ${ext}`)
+    }
+    if (file.buffer.length === 0) {
+      throw new Error('Avatar file is empty')
+    }
+    const filename = `avatar_${userId}`
+    return {
+      path: `user/${userId}/avatar/${filename}.${ext}`,
+      filename,
+      ext,
+      content: file.buffer,
+      contentType: file.mimetype || null,
+    }
+  }
+
+  private resolveAvatarExtension(originalname: string): string {
+    const parts = originalname.split('.')
+    const ext = parts.length > 1 ? parts.pop() ?? '' : ''
+    return ext.toLowerCase()
+  }
+
+  private resolveAvatarContentType(ext: string, fallback: string | null): string {
+    switch (ext.toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg'
+      case 'png':
+        return 'image/png'
+      case 'webp':
+        return 'image/webp'
+      default:
+        return fallback || 'application/octet-stream'
     }
   }
 }

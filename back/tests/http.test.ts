@@ -227,23 +227,31 @@ describe('http api', () => {
 
     const avatar = await request('/user-api/user/1/avatar/upload', {
       method: 'POST',
-      body: formData({ file: new Blob([Buffer.from('avatar')], { type: 'image/png' }) }),
+      body: formData({ file: new File([Buffer.from('avatar')], 'avatar.png', { type: 'image/png' }) }),
     })
     expect(avatar.body.avatar.id).toBeTruthy()
+    expect(avatar.body.avatar.filename).toBe('avatar_1')
+    expect(avatar.body.avatar.path).toBe('user/1/avatar/avatar_1.png')
 
     const avatarReplace = await request('/user-api/user/1/avatar/replace', {
       method: 'PUT',
-      body: formData({ file: new Blob([Buffer.from('avatar-2')], { type: 'image/png' }) }),
+      body: formData({ file: new File([Buffer.from('avatar-2')], 'avatar.png', { type: 'image/png' }) }),
     })
     expect(avatarReplace.body.avatar.id).toBeTruthy()
+    expect(avatarReplace.body.avatar.id).toBe(avatar.body.avatar.id)
 
     if (!server) throw new Error('server is not started')
     const avatarContent = await fetch(`${server.baseUrl}/user-api/user/1/avatar/content`)
     expect(avatarContent.headers.get('content-type')).toContain('image/png')
+    expect(avatarContent.headers.get('cache-control')).toContain('no-store')
     expect(Buffer.from(await avatarContent.arrayBuffer()).length).toBeGreaterThan(0)
 
     const avatarDelete = await request('/user-api/user/1/avatar', { method: 'DELETE' })
     expect(avatarDelete.body.avatar).toBeNull()
+
+    const missingAvatarContent = await request('/user-api/user/1/avatar/content')
+    expect(missingAvatarContent.response.status).toBe(404)
+    expect(missingAvatarContent.body.detail.error_message).toBe('Avatar not found')
 
     const partCreate = await request('/user-api/file-storage/part/create', {
       method: 'POST',
