@@ -11,7 +11,7 @@ export class FileApiService {
   constructor(private readonly fileStorage: FileStorageService) {}
 
   listParts() {
-    const parts = this.fileStorage.getPartNames()
+    const parts = [...this.fileStorage.fileParts.values()]
     return { parts, count: parts.length }
   }
 
@@ -143,7 +143,7 @@ export class FileApiService {
   }
 
   getPartCount() {
-    const parts = this.fileStorage.getPartNames()
+    const parts = [...this.fileStorage.fileParts.values()]
     return { parts, count: parts.length }
   }
 
