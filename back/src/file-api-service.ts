@@ -128,7 +128,7 @@ export class FileApiService {
     const stored = this.fileStorage.storeFile({
       storagePartName: existing.storage_part_name,
       path: existing.path,
-      filename: file.originalname,
+      filename: existing.filename,
       ext: existing.ext,
       content: file.buffer,
       contentType: file.mimetype,

@@ -63,7 +63,7 @@ describe('file api service', () => {
       originalname: 'manual-v2.txt',
       buffer: Buffer.from('manual2'),
       mimetype: 'text/plain',
-    })?.metadata.filename).toBe('manual-v2.txt')
+    })?.metadata.filename).toBe('manual-replaced.txt')
     const deleted = service.deleteManagedFile(managed.metadata.id, false)
     expect(deleted?.metadata.deleted_at).not.toBeNull()
     expect(deleted?.metadata.storage_part_name).toBe('trash')

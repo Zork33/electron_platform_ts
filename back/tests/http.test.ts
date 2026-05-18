@@ -554,6 +554,7 @@ describe('http api', () => {
         file: new Blob([Buffer.from('managed file 2')], { type: 'text/plain' }),
       }),
     })
+    expect(fileManagerReplace.body.metadata.filename).toBe('file-renamed.txt')
     expect(fileManagerReplace.body.metadata.size_bytes).toBe(14)
 
     const fileManagerDownload = await fetch(`${server.baseUrl}/user-api/file-manager/${fileManagerUpload.body.metadata.id}/download`)
