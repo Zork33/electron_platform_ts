@@ -26,13 +26,9 @@ const authTokenFromRequest = (req: Request): string | null => {
   return header.startsWith('Bearer ') ? header.slice('Bearer '.length) : null
 }
 
-const buildDownloadFilename = (filename: string, ext: string): { asciiFilename: string; encodedFilename: string } => {
+const buildDownloadFilename = (filename: string, ext: string): string => {
   const downloadFilename = `${filename}.${ext}`
-  const asciiFilename = /^[\x00-\x7F]+$/.test(downloadFilename) ? downloadFilename : `download.${ext}`
-  return {
-    asciiFilename,
-    encodedFilename: encodeURIComponent(downloadFilename),
-  }
+  return /^[\x00-\x7F]+$/.test(downloadFilename) ? downloadFilename : `download.${ext}`
 }
 
 const buildPathDownloadFilename = (path: string): string => {
@@ -505,10 +501,7 @@ function createUserApiRouter(): Router {
     if (!file) return notFound(res, 'File not found in storage')
     const downloadFilename = buildDownloadFilename(metadata.metadata.filename, metadata.metadata.ext)
     res.setHeader('Content-Type', file.contentType)
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${downloadFilename.asciiFilename}"; filename*=UTF-8''${downloadFilename.encodedFilename}`
-    )
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`)
     res.send(file.content)
   })
 
