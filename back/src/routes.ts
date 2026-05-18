@@ -525,6 +525,11 @@ function createDevApiRouter(wsApi: {
     res.json({ healthy: true, service: 'file-storage-ts' })
   })
 
+  router.post('/file-storage/part/sync', (_req, res) => {
+    store.fileStorage.ensureSystemParts()
+    res.json({ success: true, message: 'Storage parts synchronized successfully' })
+  })
+
   router.get('/object-container/storage-info', (_req, res) => {
     res.json(store.objectContainer.getStorageInfo())
   })

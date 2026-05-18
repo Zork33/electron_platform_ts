@@ -400,6 +400,12 @@ describe('http api', () => {
     })
     expect(partUpdate.body.part.is_public).toBe(true)
 
+    store.fileStorage.fileParts.delete('trash')
+    const partSync = await request('/dev-api/file-storage/part/sync', { method: 'POST' })
+    expect(partSync.response.ok).toBe(true)
+    expect(partSync.body.message).toBe('Storage parts synchronized successfully')
+    expect(store.fileStorage.getPart('trash')?.is_public).toBe(false)
+
     const partDelete = await request('/user-api/file-storage/part/archive', {
       method: 'DELETE',
     })
