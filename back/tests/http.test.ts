@@ -170,7 +170,7 @@ describe('http api', () => {
       body: JSON.stringify({ auth_email: 'missing@example.com' }),
     })
     expect(missingLogin.response.status).toBe(404)
-    expect(missingLogin.body.detail.error_code).toBe('NOT_FOUND')
+    expect(missingLogin.body.detail.error_code).toBe('USER_NOT_FOUND')
 
     const existingRegistrationUser = await request('/user-api/auth/registration-confirm-code-start', {
       method: 'POST',
@@ -181,7 +181,7 @@ describe('http api', () => {
       }),
     })
     expect(existingRegistrationUser.response.status).toBe(409)
-    expect(existingRegistrationUser.body.detail.error_code).toBe('RESOURCE_CONFLICT')
+    expect(existingRegistrationUser.body.detail.error_code).toBe('USER_ALREADY_EXISTS')
 
     store.users.create({
       person_id: 1,

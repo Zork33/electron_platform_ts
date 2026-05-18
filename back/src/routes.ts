@@ -100,7 +100,7 @@ function createUserApiRouter(): Router {
     if (!authEmail) return badRequest(res, 'auth_email is required')
     const result = await store.authApiService.startLogin(authEmail)
     if (!result.ok) {
-      if (result.status === 404) return notFound(res, result.error)
+      if (result.status === 404) return notFound(res, result.error, 'USER_NOT_FOUND')
       return validationError(res, result.error, result.status === 422 ? 'USER_ACCESS_DENIED' : 'VALIDATION_ERROR')
     }
     res.json(result)
@@ -117,7 +117,7 @@ function createUserApiRouter(): Router {
       middle_name: req.body?.middle_name ? String(req.body.middle_name) : null,
     })
     if (!result.ok) {
-      return result.status === 409 ? conflict(res, result.error) : badRequest(res, result.error)
+      return result.status === 409 ? conflict(res, result.error, 'USER_ALREADY_EXISTS') : badRequest(res, result.error)
     }
     res.json(result)
   })
