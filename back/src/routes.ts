@@ -198,7 +198,12 @@ function createUserApiRouter(): Router {
     const rawScoreThreshold = req.body?.score_threshold ?? req.query.score_threshold
     const parsedScoreThreshold = Number(rawScoreThreshold)
     const scoreThreshold = Number.isFinite(parsedScoreThreshold) ? parsedScoreThreshold : null
-    res.json(store.profileService.vectorSearch(query, limit, scoreThreshold))
+    res.json(
+      store.profileService.vectorSearch(query, limit, scoreThreshold).map((person) => ({
+        ...person,
+        score: Number(person.score.toFixed(4)),
+      }))
+    )
   })
 
   router.get('/user', (req, res) => {

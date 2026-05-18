@@ -123,6 +123,35 @@ describe('backend api contract', () => {
     expect(personList.response.ok).toBe(true)
     expect(Array.isArray(personList.body)).toBe(true)
 
+    const personSearch = await request('/user-api/person/vector_search', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        query: 'contract',
+        limit: 10,
+      }),
+    })
+    expect(personSearch.response.ok).toBe(true)
+    expect(Array.isArray(personSearch.body)).toBe(true)
+    const personSearchItem = (personSearch.body as Array<Record<string, unknown>>)[0]
+    expectObjectKeys(personSearchItem, [
+      'id',
+      'first_name',
+      'last_name',
+      'middle_name',
+      'birth_date',
+      'description',
+      'gender_id',
+      'vector_db_record_id',
+      'is_vector_synced',
+      'created_at',
+      'updated_at',
+      'deleted_at',
+      'score',
+    ])
+    expect(typeof personSearchItem.score).toBe('number')
+    expect(personSearchItem.score).toBeCloseTo(Number((personSearchItem.score as number).toFixed(4)), 4)
+
     const userCreate = await request('/user-api/user', {
       method: 'POST',
       headers: jsonHeaders,
