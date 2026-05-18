@@ -550,6 +550,21 @@ describe('http api', () => {
     expect(fileManagerDownload.headers.get('content-disposition')).toContain('attachment;')
     expect(fileManagerDownload.headers.get('content-disposition')).toBe(`attachment; filename="${expectedDownloadName}"`)
 
+    const unicodeFileManagerUpload = await request('/user-api/file-manager/upload', {
+      method: 'POST',
+      body: formData({
+        file: new Blob([Buffer.from('unicode managed file')], { type: 'text/plain' }),
+        storage_part_name: 'private',
+        path: 'managed/unicode.txt',
+        filename: 'файл.txt',
+        ext: 'txt',
+      }),
+    })
+    const unicodeFileManagerDownload = await fetch(
+      `${server.baseUrl}/user-api/file-manager/${unicodeFileManagerUpload.body.metadata.id}/download`
+    )
+    expect(unicodeFileManagerDownload.headers.get('content-disposition')).toBe('attachment; filename="download.txt"')
+
     const fileManagerUrl = await request(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}/url?expires_in=123`)
     expect(fileManagerUrl.body.url).toContain(`/user-api/file-manager/${fileManagerUpload.body.metadata.id}/download`)
 
