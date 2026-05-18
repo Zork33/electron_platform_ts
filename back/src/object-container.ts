@@ -53,6 +53,7 @@ export class ObjectContainerService {
   private readonly cleanupLog: Array<{ datetime: string; cleaned_count: number }> = []
   private isCleanerRunning = false
   private intervalSeconds: number | null = null
+  private lastCleanupTime: string | null = null
 
   constructor(private readonly fileStorage: FileStorageService) {}
 
@@ -87,8 +88,8 @@ export class ObjectContainerService {
   getCleanerInfo(): ObjectContainerCleanerInfo {
     return {
       summary: {
-        last_cleanup: this.cleanupLog.length > 0 ? this.cleanupLog[this.cleanupLog.length - 1].datetime : null,
-        next_cleanup: null,
+        last_cleanup: this.lastCleanupTime,
+        next_cleanup: this.getNextCleanupTime(),
         is_running: this.isCleanerRunning,
         interval_seconds: this.intervalSeconds,
       },
@@ -112,5 +113,35 @@ export class ObjectContainerService {
       cleaner: this.getCleanerInfo(),
       container: this.getContainerInfo(),
     }
+  }
+
+  startCleaner(intervalSeconds = 300): void {
+    this.isCleanerRunning = true
+    this.intervalSeconds = intervalSeconds
+  }
+
+  stopCleaner(): void {
+    this.isCleanerRunning = false
+  }
+
+  recordCleanup(cleanedCount: number): void {
+    const datetime = new Date().toISOString()
+    this.lastCleanupTime = datetime
+    this.cleanupLog.push({ datetime, cleaned_count: cleanedCount })
+    if (this.cleanupLog.length > 100) {
+      this.cleanupLog.splice(0, this.cleanupLog.length - 100)
+    }
+  }
+
+  cleanupExpiredObjects(): number {
+    const expiredCount = this.fileStorage.listFiles(true).filter((file) => file.deleted_at !== null).length
+    this.recordCleanup(expiredCount)
+    return expiredCount
+  }
+
+  private getNextCleanupTime(): string | null {
+    if (!this.isCleanerRunning || !this.lastCleanupTime || this.intervalSeconds === null) return null
+    const next = new Date(new Date(this.lastCleanupTime).getTime() + this.intervalSeconds * 1000)
+    return next.toISOString()
   }
 }

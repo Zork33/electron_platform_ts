@@ -38,5 +38,18 @@ describe('object container service', () => {
       cleaner: service.getCleanerInfo(),
       container: service.getContainerInfo(),
     })
+
+    service.startCleaner(120)
+    service.recordCleanup(2)
+    const cleanerInfo = service.getCleanerInfo()
+    expect(cleanerInfo.summary.is_running).toBe(true)
+    expect(cleanerInfo.summary.interval_seconds).toBe(120)
+    expect(cleanerInfo.summary.last_cleanup).toBeTruthy()
+    expect(cleanerInfo.summary.next_cleanup).toBeTruthy()
+    expect(cleanerInfo.cleanup_log).toHaveLength(1)
+    storage.deleteFileByPath('archive', 'docs/readme.txt')
+    expect(service.cleanupExpiredObjects()).toBe(1)
+    service.stopCleaner()
+    expect(service.getCleanerInfo().summary.is_running).toBe(false)
   })
 })
