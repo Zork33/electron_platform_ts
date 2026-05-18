@@ -167,7 +167,7 @@ function createUserApiRouter(): Router {
 
   router.get('/user/current-user', (req, res) => {
     const user = withCurrentUser(req)
-    if (!user) return unauthorized(res, 'Access token is invalid or expired')
+    if (!user) return unauthorized(res, 'Access token is invalid or expired', 'UNAUTHORIZED')
     res.json(store.profileService.getCurrentUser(user))
   })
 

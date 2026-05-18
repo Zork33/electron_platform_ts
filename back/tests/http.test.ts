@@ -136,6 +136,10 @@ describe('http api', () => {
     })
     expect(afterLogout.response.status).toBe(401)
 
+    const unauthorizedCurrentUser = await request('/user-api/user/current-user')
+    expect(unauthorizedCurrentUser.response.status).toBe(401)
+    expect(unauthorizedCurrentUser.body.detail.error_code).toBe('UNAUTHORIZED')
+
     const registrationStart = await request('/user-api/auth/registration-confirm-code-start', {
       method: 'POST',
       headers: jsonHeaders,
