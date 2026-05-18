@@ -367,7 +367,14 @@ function createUserApiRouter(): Router {
     if (!name) return badRequest(res, 'name is required')
     const part = store.fileApiService.createPart(name, Boolean(req.body?.is_public))
     if (!part) return conflict(res, `Part '${name}' already exists`)
-    res.json({ success: true, message: 'part created', part })
+    res.json({
+      success: true,
+      message: `Part '${name}' created successfully`,
+      part: {
+        name: part.name,
+        is_public: part.is_public,
+      },
+    })
   })
 
   router.get('/file-storage/part/:partName', (req, res) => {
@@ -379,7 +386,10 @@ function createUserApiRouter(): Router {
     const exists = store.fileApiService.getPart(req.params.partName)
     if (!exists) return notFound(res, 'Part not found')
     store.fileApiService.deletePart(req.params.partName)
-    res.json({ success: true, message: 'part deleted', part: exists })
+    res.json({
+      success: true,
+      message: `Part '${req.params.partName}' deleted successfully`,
+    })
   })
 
   router.post('/file-storage/file/upload', upload.single('file'), (req, res) => {
@@ -531,7 +541,14 @@ function createDevApiRouter(wsApi: {
     const isPublic = Boolean(req.body?.is_public)
     const part = store.fileApiService.setPartPublic(partName, isPublic)
     if (!part) return notFound(res, 'Part not found')
-    res.json({ success: true, message: 'part updated', part })
+    res.json({
+      success: true,
+      message: `Part '${partName}' public status set to ${isPublic}`,
+      part: {
+        name: part.name,
+        is_public: part.is_public,
+      },
+    })
   })
 
   router.get('/file-storage/part/health/check', (_req, res) => {

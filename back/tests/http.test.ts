@@ -411,7 +411,8 @@ describe('http api', () => {
       headers: jsonHeaders,
       body: JSON.stringify({ name: 'archive', is_public: false }),
     })
-    expect(partCreate.body.part).toMatchObject({ code: 'archive', name: 'archive', is_public: false, description: null })
+    expect(partCreate.body.message).toBe("Part 'archive' created successfully")
+    expect(partCreate.body.part).toEqual({ name: 'archive', is_public: false })
 
     const duplicatePartCreate = await request('/user-api/file-storage/part/create', {
       method: 'POST',
@@ -550,7 +551,8 @@ describe('http api', () => {
       headers: jsonHeaders,
       body: JSON.stringify({ is_public: true }),
     })
-    expect(partUpdate.body.part).toMatchObject({ code: 'archive', name: 'archive', is_public: true, description: null })
+    expect(partUpdate.body.message).toBe("Part 'archive' public status set to true")
+    expect(partUpdate.body.part).toEqual({ name: 'archive', is_public: true })
 
     store.fileStorage.fileParts.delete('trash')
     const partSync = await request('/dev-api/file-storage/part/sync', { method: 'POST' })
@@ -561,7 +563,7 @@ describe('http api', () => {
     const partDelete = await request('/user-api/file-storage/part/archive', {
       method: 'DELETE',
     })
-    expect(partDelete.body.part.name).toBe('archive')
+    expect(partDelete.body.message).toBe("Part 'archive' deleted successfully")
 
     const missingPartDelete = await request('/dev-api/file-storage/part/not-here', {
       method: 'DELETE',
