@@ -6,6 +6,7 @@ export interface ConfirmCodeSettings {
   confirm_code_alphabet: string
   confirm_code_ttl_minutes: number
   sending_max_attempts_count: number
+  sending_cooldown_seconds: number
   verification_max_attempts_count: number
   sending_subject: string
 }
@@ -17,6 +18,7 @@ const DEFAULTS: Record<ConfirmCodeReasonCode, ConfirmCodeSettings> = {
     confirm_code_alphabet: '0123456789',
     confirm_code_ttl_minutes: 10,
     sending_max_attempts_count: 3,
+    sending_cooldown_seconds: 0,
     verification_max_attempts_count: 5,
     sending_subject: 'Login confirmation code',
   },
@@ -26,6 +28,7 @@ const DEFAULTS: Record<ConfirmCodeReasonCode, ConfirmCodeSettings> = {
     confirm_code_alphabet: '0123456789',
     confirm_code_ttl_minutes: 10,
     sending_max_attempts_count: 3,
+    sending_cooldown_seconds: 0,
     verification_max_attempts_count: 5,
     sending_subject: 'Registration confirmation code',
   },

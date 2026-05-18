@@ -46,6 +46,7 @@ export class AuthService {
           confirm_code_alphabet: process.env.CONFIRM_CODE_ALPHABET ?? '0123456789',
           confirm_code_ttl_minutes: Number(process.env.CONFIRM_TTL_MINUTES ?? 10),
           sending_max_attempts_count: Number(process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? 3),
+          sending_cooldown_seconds: Number(process.env.CONFIRM_SENDING_COOLDOWN_SECONDS ?? 0),
           verification_max_attempts_count: Number(process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? 5),
         },
         registration: {
@@ -53,6 +54,7 @@ export class AuthService {
           confirm_code_alphabet: process.env.CONFIRM_CODE_ALPHABET ?? '0123456789',
           confirm_code_ttl_minutes: Number(process.env.CONFIRM_TTL_MINUTES ?? 10),
           sending_max_attempts_count: Number(process.env.CONFIRM_SENDING_MAX_ATTEMPTS ?? 3),
+          sending_cooldown_seconds: Number(process.env.CONFIRM_SENDING_COOLDOWN_SECONDS ?? 0),
           verification_max_attempts_count: Number(process.env.CONFIRM_VERIFICATION_MAX_ATTEMPTS ?? 5),
         },
       })
