@@ -536,6 +536,18 @@ describe('http api', () => {
     expect(missingFileDownloadPart.response.status).toBe(422)
     expect(missingFileDownloadPart.body.detail.error_message).toBe('storage_part_name is required')
 
+    const missingFileDeletePart = await request('/user-api/file-storage/file/delete?path=docs%2Freadme.txt', {
+      method: 'DELETE',
+    })
+    expect(missingFileDeletePart.response.status).toBe(422)
+    expect(missingFileDeletePart.body.detail.error_message).toBe('storage_part_name is required')
+
+    const missingPresignedUrlPath = await request(
+      '/user-api/file-storage/file/presigned-url?storage_part_name=archive&expires_in=60'
+    )
+    expect(missingPresignedUrlPath.response.status).toBe(422)
+    expect(missingPresignedUrlPath.body.detail.error_message).toBe('path is required')
+
     const fileManagerUpload = await request('/user-api/file-manager/upload', {
       method: 'POST',
       body: formData({
