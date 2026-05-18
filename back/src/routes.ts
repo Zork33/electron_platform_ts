@@ -470,8 +470,10 @@ function createUserApiRouter(): Router {
     if (!file) return badRequest(res, 'file is required')
     const storagePartName = String(req.body?.storage_part_name ?? 'private').toLowerCase()
     const path = String(req.body?.path ?? '')
-    const filename = String(req.body?.filename ?? file.originalname)
-    const ext = String(req.body?.ext ?? (filename.includes('.') ? filename.split('.').pop() ?? '' : ''))
+    const filename = String(req.body?.filename ?? '')
+    const ext = String(req.body?.ext ?? '')
+    if (!filename) return badRequest(res, 'filename is required')
+    if (!ext) return badRequest(res, 'ext is required')
     if (!['private', 'public'].includes(storagePartName)) return badRequest(res, `Unknown storage part: ${storagePartName}`)
     try {
       const result = store.fileApiService.uploadManagedFile({
