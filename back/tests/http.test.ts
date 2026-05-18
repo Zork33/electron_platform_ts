@@ -261,6 +261,15 @@ describe('http api', () => {
     })
     expect(partCreate.body.part.name).toBe('archive')
 
+    const duplicatePartCreate = await request('/user-api/file-storage/part/create', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ name: 'archive', is_public: false }),
+    })
+    expect(duplicatePartCreate.response.status).toBe(409)
+    expect(duplicatePartCreate.body.detail.error_message).toContain("Part 'archive' already exists")
+    expect(duplicatePartCreate.body.detail.error_code).toBe('RESOURCE_CONFLICT')
+
     const missingPartLookup = await request('/user-api/file-storage/part/missing')
     expect(missingPartLookup.body.exists).toBe(false)
 

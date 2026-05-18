@@ -173,6 +173,11 @@ export class FileStorageService {
     return part
   }
 
+  createPart(name: string, isPublic: boolean): FilePart | null {
+    if (this.fileParts.has(name)) return null
+    return this.setPart(name, isPublic)
+  }
+
   deletePart(name: string): FilePart | null {
     const part = this.fileParts.get(name) ?? null
     if (!part) return null

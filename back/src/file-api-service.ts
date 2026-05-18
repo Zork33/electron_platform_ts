@@ -16,7 +16,7 @@ export class FileApiService {
   }
 
   createPart(name: string, isPublic: boolean) {
-    return this.fileStorage.setPart(name, isPublic)
+    return this.fileStorage.createPart(name, isPublic)
   }
 
   getPart(partName: string) {

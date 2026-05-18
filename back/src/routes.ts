@@ -1,7 +1,7 @@
 import type { Request, Response, Router } from 'express'
 import { Router as createRouter } from 'express'
 import multer from 'multer'
-import { badRequest, notFound, unauthorized } from './api-errors.js'
+import { badRequest, conflict, notFound, unauthorized } from './api-errors.js'
 import { store } from './store.js'
 import type { BaseRecord } from './types.js'
 import type { WsConnectionInfo } from './types.js'
@@ -353,6 +353,7 @@ function createUserApiRouter(): Router {
     const name = String(req.body?.name ?? '').trim()
     if (!name) return badRequest(res, 'name is required')
     const part = store.fileApiService.createPart(name, Boolean(req.body?.is_public))
+    if (!part) return conflict(res, `Part '${name}' already exists`)
     res.json({ success: true, message: 'part created', part })
   })
 

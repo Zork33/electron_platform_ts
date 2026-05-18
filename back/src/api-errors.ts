@@ -114,3 +114,6 @@ export const notFound = (res: Response, error_message: string, error_code = 'NOT
 
 export const unauthorized = (res: Response, error_message: string, error_code = 'AUTHENTICATION_ERROR', meta: Record<string, unknown> | null = null) =>
   respond(res, new ApplicationError(error_message, error_code, 401, meta))
+
+export const conflict = (res: Response, error_message: string, error_code = 'RESOURCE_CONFLICT', meta: Record<string, unknown> | null = null) =>
+  respond(res, new ApplicationError(error_message, error_code, 409, meta))
