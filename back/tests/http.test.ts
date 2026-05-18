@@ -211,6 +211,26 @@ describe('http api', () => {
     })
     expect(invalidLoginFinish.response.status).toBe(422)
     expect(invalidLoginFinish.body.detail.error_code).toBe('INVALID_CONFIRM_CODE')
+
+    const limitLoginStart = await request('/user-api/auth/login-confirm-code-start', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ auth_email: 'demo@example.com' }),
+    })
+    const limitLoginToken = store.auth.confirmationTokens.get(limitLoginStart.body.confirmation_token)
+    if (!limitLoginToken) throw new Error('confirmation token missing')
+    limitLoginToken.verification_attempts_count = 5
+
+    const limitLoginFinish = await request('/user-api/auth/login-confirm-code-finish', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        confirmation_token: limitLoginStart.body.confirmation_token,
+        confirm_code: limitLoginToken.confirm_code,
+      }),
+    })
+    expect(limitLoginFinish.response.status).toBe(422)
+    expect(limitLoginFinish.body.detail.error_code).toBe('VERIFICATION_ATTEMPTS_EXCEEDED')
   })
 
   test('crud, files and object container routes', async () => {

@@ -171,4 +171,31 @@ describe('auth api service', () => {
       expect.objectContaining({ ok: false, error: 'Invalid confirmation code', error_code: 'INVALID_CONFIRM_CODE', status: 422 })
     )
   })
+
+  test('finish flow surfaces verification attempts exceeded', async () => {
+    users.create({
+      person_id: null,
+      auth_email: 'limit@example.com',
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    })
+
+    const start = await service.startLogin('limit@example.com')
+    if (!start.ok) throw new Error(start.error)
+    const confirmation = auth.confirmationTokens.get(start.confirmation_token)
+    if (!confirmation) throw new Error('confirmation missing')
+    confirmation.verification_attempts_count = 5
+
+    expect(service.finishLogin(start.confirmation_token, confirmation.confirm_code)).toEqual(
+      expect.objectContaining({
+        ok: false,
+        error: 'Verification attempts exceeded',
+        error_code: 'VERIFICATION_ATTEMPTS_EXCEEDED',
+        status: 422,
+      })
+    )
+  })
 })
