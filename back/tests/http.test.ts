@@ -472,7 +472,7 @@ describe('http api', () => {
         path: 'docs/missing-part-name.txt',
       }),
     })
-    expect(missingStoragePartNameUpload.response.status).toBe(400)
+    expect(missingStoragePartNameUpload.response.status).toBe(422)
     expect(missingStoragePartNameUpload.body.detail.error_message).toBe('storage_part_name is required')
 
     const missingStoragePartUpload = await request('/user-api/file-storage/file/upload', {
@@ -542,7 +542,7 @@ describe('http api', () => {
         ext: 'txt',
       }),
     })
-    expect(missingFilenameUpload.response.status).toBe(400)
+    expect(missingFilenameUpload.response.status).toBe(422)
     expect(missingFilenameUpload.body.detail.error_message).toBe('filename is required')
 
     const invalidFileManagerUpload = await request('/user-api/file-manager/upload', {
@@ -555,7 +555,7 @@ describe('http api', () => {
         ext: 'txt',
       }),
     })
-    expect(invalidFileManagerUpload.response.status).toBe(400)
+    expect(invalidFileManagerUpload.response.status).toBe(422)
     expect(invalidFileManagerUpload.body.detail.error_message).toContain('Unknown storage part')
 
     const fileManagerList = await request('/user-api/file-manager/list')

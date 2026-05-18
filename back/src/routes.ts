@@ -397,11 +397,11 @@ function createUserApiRouter(): Router {
 
   router.post('/file-storage/file/upload', upload.single('file'), (req, res) => {
     const file = req.file
-    if (!file) return badRequest(res, 'file is required')
+    if (!file) return validationError(res, 'file is required', 'VALIDATION_ERROR')
     const storagePartName = String(req.body?.storage_part_name ?? '')
-    if (!storagePartName) return badRequest(res, 'storage_part_name is required')
+    if (!storagePartName) return validationError(res, 'storage_part_name is required', 'VALIDATION_ERROR')
     const path = String(req.body?.path ?? '')
-    if (!path) return badRequest(res, 'path is required')
+    if (!path) return validationError(res, 'path is required', 'VALIDATION_ERROR')
     if (!store.fileApiService.getPart(storagePartName)) return notFound(res, `Storage part '${storagePartName}' not found`)
     try {
       const result = store.fileApiService.uploadFile({ storagePartName, path, file })
@@ -474,14 +474,15 @@ function createUserApiRouter(): Router {
 
   router.post('/file-manager/upload', upload.single('file'), (req, res) => {
     const file = req.file
-    if (!file) return badRequest(res, 'file is required')
+    if (!file) return validationError(res, 'file is required', 'VALIDATION_ERROR')
     const storagePartName = String(req.body?.storage_part_name ?? 'private').toLowerCase()
     const path = String(req.body?.path ?? '')
     const filename = String(req.body?.filename ?? '')
     const ext = String(req.body?.ext ?? '')
-    if (!filename) return badRequest(res, 'filename is required')
-    if (!ext) return badRequest(res, 'ext is required')
-    if (!['private', 'public'].includes(storagePartName)) return badRequest(res, `Unknown storage part: ${storagePartName}`)
+    if (!filename) return validationError(res, 'filename is required', 'VALIDATION_ERROR')
+    if (!ext) return validationError(res, 'ext is required', 'VALIDATION_ERROR')
+    if (!['private', 'public'].includes(storagePartName))
+      return validationError(res, `Unknown storage part: ${storagePartName}`, 'VALIDATION_ERROR')
     try {
       const result = store.fileApiService.uploadManagedFile({
         storagePartName,
