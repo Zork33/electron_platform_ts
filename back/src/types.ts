@@ -170,6 +170,8 @@ export interface AuthStartResponse {
 }
 
 export interface AuthFinishResponse {
+  verified: true
+  message: string
   access_token: string
   expires_at: string
   session_expires_days: number

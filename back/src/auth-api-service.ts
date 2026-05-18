@@ -18,7 +18,16 @@ type StartAuthResult =
   | { ok: false; error: string; status: number }
 
 type FinishAuthResult =
-  | { ok: true; access_token: string; expires_at: string; session_expires_days: number; user_id: number; person_id: number | null }
+  | {
+      ok: true
+      verified: true
+      message: string
+      access_token: string
+      expires_at: string
+      session_expires_days: number
+      user_id: number
+      person_id: number | null
+    }
   | { ok: false; error: string; error_code: string; status: number }
 
 const finishAuthError = (error: string): { error: string; error_code: string; status: number } => {
@@ -98,6 +107,8 @@ export class AuthApiService {
       session_expires_days: this.deps.sessionDays,
       user_id: user.id,
       person_id: user.person_id,
+      verified: true,
+      message: 'Confirmation code successfully verified',
     }
   }
 
@@ -131,6 +142,8 @@ export class AuthApiService {
       session_expires_days: this.deps.sessionDays,
       user_id: user.id,
       person_id: user.person_id,
+      verified: true,
+      message: 'Confirmation code successfully verified',
     }
   }
 
