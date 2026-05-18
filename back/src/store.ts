@@ -132,6 +132,9 @@ class AppStore {
       middle_name: null,
       birth_date: null,
       description: null,
+      gender_id: null,
+      vector_db_record_id: null,
+      is_vector_synced: false,
     }),
     () => void this.persist()
   )
@@ -143,6 +146,7 @@ class AppStore {
       has_access: true,
       is_admin: false,
       session_expires_at: null,
+      auth_session_expires_at: null,
       avatar_id: null,
       auth_telegram_id: null,
     }),
@@ -300,13 +304,18 @@ class AppStore {
       middle_name: null,
       birth_date: null,
       description: 'Seed person',
+      gender_id: null,
+      vector_db_record_id: null,
+      is_vector_synced: false,
     })
+    const sessionExpiresAt = hoursFromNow(ACCESS_TTL_HOURS)
     const user = this.users.create({
       person_id: person.id,
       auth_email: 'demo@example.com',
       has_access: true,
       is_admin: true,
-      session_expires_at: hoursFromNow(ACCESS_TTL_HOURS),
+      session_expires_at: sessionExpiresAt,
+      auth_session_expires_at: sessionExpiresAt,
       avatar_id: null,
       auth_telegram_id: null,
     })

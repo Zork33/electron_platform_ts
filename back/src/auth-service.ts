@@ -194,7 +194,10 @@ export class AuthService {
       expires_at,
     }
     this.accessTokens.set(token, record)
-    this.deps.patchUser(userId, { session_expires_at: record.expires_at })
+    this.deps.patchUser(userId, {
+      session_expires_at: record.expires_at,
+      auth_session_expires_at: record.expires_at,
+    })
     this.deps.onChange?.()
     return record
   }
@@ -230,7 +233,7 @@ export class AuthService {
         removed += 1
       }
     }
-    this.deps.patchUser(userId, { session_expires_at: null })
+    this.deps.patchUser(userId, { session_expires_at: null, auth_session_expires_at: null })
     this.deps.onChange?.()
     return removed
   }
@@ -251,7 +254,8 @@ export class AuthService {
   validateUserSession(user: User | null): User | null {
     if (!user || user.deleted_at !== null) return null
     if (!user.has_access) return null
-    if (user.session_expires_at && new Date(user.session_expires_at).getTime() <= Date.now()) return null
+    const sessionExpiresAt = user.session_expires_at ?? user.auth_session_expires_at ?? null
+    if (sessionExpiresAt && new Date(sessionExpiresAt).getTime() <= Date.now()) return null
     return user
   }
 }

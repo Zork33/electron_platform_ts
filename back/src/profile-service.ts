@@ -110,14 +110,20 @@ export class ProfileService {
       middle_name: personData?.middle_name ?? null,
       birth_date: null,
       description: null,
+      gender_id: null,
+      vector_db_record_id: null,
+      is_vector_synced: false,
     })
+
+    const sessionExpiresAt = new Date(Date.now() + (this.deps.sessionTtlHours ?? 24 * 7) * 60 * 60 * 1000).toISOString()
 
     return this.deps.users.create({
       person_id: person.id,
       auth_email: authEmail,
       has_access: true,
       is_admin: false,
-      session_expires_at: new Date(Date.now() + (this.deps.sessionTtlHours ?? 24 * 7) * 60 * 60 * 1000).toISOString(),
+      session_expires_at: sessionExpiresAt,
+      auth_session_expires_at: sessionExpiresAt,
       avatar_id: null,
       auth_telegram_id: null,
     })
@@ -195,6 +201,7 @@ export class ProfileService {
   serializeUser(user: User): User & { avatar: AvatarMetadata | null } {
     return {
       ...user,
+      auth_session_expires_at: user.auth_session_expires_at ?? user.session_expires_at,
       avatar: user.avatar_id ? this.serializeAvatarMetadata(this.deps.fileStorage.getFileById(user.avatar_id)) : null,
     }
   }

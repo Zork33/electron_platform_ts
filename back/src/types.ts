@@ -11,6 +11,9 @@ export interface Person extends BaseRecord {
   middle_name: string | null
   birth_date: string | null
   description: string | null
+  gender_id: number | null
+  vector_db_record_id: number | null
+  is_vector_synced: boolean
 }
 
 export interface User extends BaseRecord {
@@ -19,6 +22,7 @@ export interface User extends BaseRecord {
   has_access: boolean
   is_admin: boolean
   session_expires_at: string | null
+  auth_session_expires_at?: string | null
   avatar_id: number | null
   auth_telegram_id: string | null
 }

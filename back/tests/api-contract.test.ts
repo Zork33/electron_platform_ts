@@ -117,7 +117,7 @@ describe('backend api contract', () => {
       }),
     })
     expect(personCreate.response.ok).toBe(true)
-    expectObjectKeys(personCreate.body, ['id', 'first_name', 'last_name', 'middle_name', 'birth_date', 'description', 'created_at', 'updated_at', 'deleted_at'])
+    expectObjectKeys(personCreate.body, ['id', 'first_name', 'last_name', 'middle_name', 'birth_date', 'description', 'gender_id', 'vector_db_record_id', 'is_vector_synced', 'created_at', 'updated_at', 'deleted_at'])
 
     const personList = await request('/user-api/person')
     expect(personList.response.ok).toBe(true)
@@ -137,7 +137,7 @@ describe('backend api contract', () => {
       }),
     })
     expect(userCreate.response.ok).toBe(true)
-    expectObjectKeys(userCreate.body, ['id', 'person_id', 'auth_email', 'has_access', 'is_admin', 'session_expires_at', 'avatar_id', 'auth_telegram_id'])
+    expectObjectKeys(userCreate.body, ['id', 'person_id', 'auth_email', 'has_access', 'is_admin', 'session_expires_at', 'auth_session_expires_at', 'avatar_id', 'auth_telegram_id'])
 
     const contactInfoList = await request('/user-api/contact-info')
     expect(contactInfoList.response.ok).toBe(true)

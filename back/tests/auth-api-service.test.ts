@@ -14,6 +14,9 @@ describe('auth api service', () => {
     middle_name: null,
     birth_date: null,
     description: null,
+    gender_id: null,
+    vector_db_record_id: null,
+    is_vector_synced: false,
   }))
   const users = new CrudCollection<User>(() => ({
     person_id: null,
@@ -21,6 +24,7 @@ describe('auth api service', () => {
     has_access: true,
     is_admin: false,
     session_expires_at: null,
+    auth_session_expires_at: null,
     avatar_id: null,
     auth_telegram_id: null,
   }))

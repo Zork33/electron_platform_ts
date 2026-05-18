@@ -12,6 +12,9 @@ describe('profile service', () => {
       middle_name: null,
       birth_date: null,
       description: null,
+      gender_id: null,
+      vector_db_record_id: null,
+      is_vector_synced: false,
     }))
     const users = new CrudCollection<User>(() => ({
       person_id: null,
@@ -19,6 +22,7 @@ describe('profile service', () => {
       has_access: true,
       is_admin: false,
       session_expires_at: null,
+      auth_session_expires_at: null,
       avatar_id: null,
       auth_telegram_id: null,
     }))
@@ -28,10 +32,12 @@ describe('profile service', () => {
 
     const person = service.createPerson({ first_name: 'Alex', last_name: 'Smith' })
     expect(service.getPerson(person.id)?.first_name).toBe('Alex')
+    expect(service.getPerson(person.id)?.gender_id).toBeNull()
     expect(service.vectorSearch('alex', 10, 0)[0].id).toBe(person.id)
 
     const user = service.createUser({ person_id: person.id, auth_email: 'alex@example.com' })
     expect(service.getUser(user.id)?.auth_email).toBe('alex@example.com')
+    expect(service.serializeUser(user).auth_session_expires_at).toBe(user.session_expires_at)
     expect(service.getCurrentUser(users.get(user.id)!).person?.person_id).toBe(person.id)
     expect(service.ensureUserByEmail('new@example.com', { first_name: 'New' }).auth_email).toBe('new@example.com')
 
