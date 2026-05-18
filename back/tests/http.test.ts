@@ -184,6 +184,35 @@ describe('http api', () => {
     expect(existingRegistrationUser.body.detail.error_code).toBe('RESOURCE_CONFLICT')
   })
 
+  test('auth finish endpoints map python status codes', async () => {
+    const missingLoginFinish = await request('/user-api/auth/login-confirm-code-finish', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        confirmation_token: 'missing-token',
+        confirm_code: '000000',
+      }),
+    })
+    expect(missingLoginFinish.response.status).toBe(404)
+    expect(missingLoginFinish.body.detail.error_code).toBe('CONFIRM_CODE_NOT_FOUND')
+
+    const loginStart = await request('/user-api/auth/login-confirm-code-start', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ auth_email: 'demo@example.com' }),
+    })
+    const invalidLoginFinish = await request('/user-api/auth/login-confirm-code-finish', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        confirmation_token: loginStart.body.confirmation_token,
+        confirm_code: '000000',
+      }),
+    })
+    expect(invalidLoginFinish.response.status).toBe(422)
+    expect(invalidLoginFinish.body.detail.error_code).toBe('INVALID_CONFIRM_CODE')
+  })
+
   test('crud, files and object container routes', async () => {
     const personCreate = await request('/user-api/person', {
       method: 'POST',

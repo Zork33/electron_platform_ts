@@ -146,4 +146,29 @@ describe('auth api service', () => {
     expect(confirmation?.sending_attempts_count).toBe(1)
     expect(confirmation?.history.filter((entry) => entry.action === 'send')).toHaveLength(1)
   })
+
+  test('finish flow returns python-like statuses', async () => {
+    users.create({
+      person_id: null,
+      auth_email: 'finish@example.com',
+      has_access: true,
+      is_admin: false,
+      session_expires_at: null,
+      avatar_id: null,
+      auth_telegram_id: null,
+    })
+
+    expect(service.finishLogin('missing-token', '123456')).toEqual({
+      ok: false,
+      error: 'Confirmation token is invalid or expired',
+      error_code: 'CONFIRM_CODE_NOT_FOUND',
+      status: 404,
+    })
+
+    const start = await service.startLogin('finish@example.com')
+    if (!start.ok) throw new Error(start.error)
+    expect(service.finishLogin(start.confirmation_token, '000000')).toEqual(
+      expect.objectContaining({ ok: false, error: 'Invalid confirmation code', error_code: 'INVALID_CONFIRM_CODE', status: 422 })
+    )
+  })
 })

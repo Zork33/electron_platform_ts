@@ -1,7 +1,7 @@
 import type { Request, Response, Router } from 'express'
 import { Router as createRouter } from 'express'
 import multer from 'multer'
-import { badRequest, conflict, notFound, unauthorized } from './api-errors.js'
+import { badRequest, conflict, notFound, unauthorized, validationError } from './api-errors.js'
 import { store } from './store.js'
 import type { BaseRecord } from './types.js'
 import type { WsConnectionInfo } from './types.js'
@@ -125,7 +125,11 @@ function createUserApiRouter(): Router {
     const confirmationToken = String(req.body?.confirmation_token ?? '')
     const confirmCode = String(req.body?.confirm_code ?? '')
     const result = store.authApiService.finishLogin(confirmationToken, confirmCode)
-    if (!result || 'ok' in result) return badRequest(res, result?.error ?? 'Invalid confirmation code')
+    if (!result || 'ok' in result) {
+      const error = result && 'error' in result ? result.error : 'Invalid confirmation code'
+      const errorCode = result && 'error_code' in result ? result.error_code : 'VALIDATION_ERROR'
+      return result && 'status' in result && result.status === 404 ? notFound(res, error, errorCode) : validationError(res, error, errorCode)
+    }
     res.json(result)
   })
 
@@ -133,7 +137,11 @@ function createUserApiRouter(): Router {
     const confirmationToken = String(req.body?.confirmation_token ?? '')
     const confirmCode = String(req.body?.confirm_code ?? '')
     const result = store.authApiService.finishRegistration(confirmationToken, confirmCode)
-    if (!result || 'ok' in result) return badRequest(res, result?.error ?? 'Invalid confirmation code')
+    if (!result || 'ok' in result) {
+      const error = result && 'error' in result ? result.error : 'Invalid confirmation code'
+      const errorCode = result && 'error_code' in result ? result.error_code : 'VALIDATION_ERROR'
+      return result && 'status' in result && result.status === 404 ? notFound(res, error, errorCode) : validationError(res, error, errorCode)
+    }
     res.json(result)
   })
 

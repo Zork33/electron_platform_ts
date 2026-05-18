@@ -109,6 +109,9 @@ const respond = (res: Response, error: ApplicationError) => res.status(error.htt
 export const badRequest = (res: Response, error_message: string, error_code = 'VALIDATION_ERROR', meta: Record<string, unknown> | null = null) =>
   respond(res, new ApplicationError(error_message, error_code, 400, meta))
 
+export const validationError = (res: Response, error_message: string, error_code = 'VALIDATION_ERROR', meta: Record<string, unknown> | null = null) =>
+  respond(res, new ApplicationError(error_message, error_code, 422, meta))
+
 export const notFound = (res: Response, error_message: string, error_code = 'NOT_FOUND', meta: Record<string, unknown> | null = null) =>
   respond(res, new ApplicationError(error_message, error_code, 404, meta))
 

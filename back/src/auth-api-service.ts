@@ -17,6 +17,23 @@ type StartAuthResult =
   | { ok: true; confirmation_token: string; expires_at: string }
   | { ok: false; error: string; status: number }
 
+type FinishAuthResult =
+  | { ok: true; access_token: string; expires_at: string; session_expires_days: number; user_id: number; person_id: number | null }
+  | { ok: false; error: string; error_code: string; status: number }
+
+const finishAuthError = (error: string): { error: string; error_code: string; status: number } => {
+  if (error.includes('invalid or expired')) {
+    return { error, error_code: 'CONFIRM_CODE_NOT_FOUND', status: 404 }
+  }
+  if (error.includes('Verification attempts exceeded')) {
+    return { error, error_code: 'VERIFICATION_ATTEMPTS_EXCEEDED', status: 422 }
+  }
+  if (error.includes('Invalid confirmation code')) {
+    return { error, error_code: 'INVALID_CONFIRM_CODE', status: 422 }
+  }
+  return { error, error_code: 'VALIDATION_ERROR', status: 422 }
+}
+
 export class AuthApiService {
   constructor(private readonly deps: AuthApiServiceDeps) {}
 
@@ -58,12 +75,14 @@ export class AuthApiService {
 
   finishLogin(confirmationToken: string, confirmCode: string) {
     const verification = this.deps.auth.verifyConfirmation(confirmationToken, confirmCode)
-    if (!verification.ok) return verification
+    if (!verification.ok) {
+      return { ok: false, ...finishAuthError(verification.error) } satisfies FinishAuthResult
+    }
     const user = this.deps.profile.findUserByEmail(verification.record.auth_email)
     if (!user) {
       this.deps.auth.markConfirmationUserCreationFailed(confirmationToken, 'User not found')
       this.deps.auth.markConfirmationAccessTokenCreationFailed(confirmationToken, 'User not found')
-      return { ok: false, error: 'User not found' }
+      return { ok: false, error: 'User not found', error_code: 'USER_NOT_FOUND', status: 404 } satisfies FinishAuthResult
     }
     this.deps.auth.markConfirmationUserCreated(confirmationToken, user.id)
     const access = this.deps.auth.issueAccessToken(user.id)
@@ -79,12 +98,19 @@ export class AuthApiService {
 
   finishRegistration(confirmationToken: string, confirmCode: string) {
     const verification = this.deps.auth.verifyConfirmation(confirmationToken, confirmCode)
-    if (!verification.ok) return verification
+    if (!verification.ok) {
+      return { ok: false, ...finishAuthError(verification.error) } satisfies FinishAuthResult
+    }
     const existingUser = this.deps.profile.findUserByEmail(verification.record.auth_email)
     if (existingUser) {
       this.deps.auth.markConfirmationUserCreationFailed(confirmationToken, 'User already exists')
       this.deps.auth.markConfirmationAccessTokenCreationFailed(confirmationToken, 'User already exists')
-      return { ok: false, error: 'User already exists' }
+      return {
+        ok: false,
+        error: 'User already exists',
+        error_code: 'REGISTRATION_ALREADY_COMPLETED',
+        status: 422,
+      } satisfies FinishAuthResult
     }
     const user = this.deps.profile.ensureUserByEmail(verification.record.auth_email, {
       first_name: verification.record.first_name,
