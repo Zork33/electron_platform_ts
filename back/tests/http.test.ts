@@ -252,6 +252,7 @@ describe('http api', () => {
     const missingAvatarContent = await request('/user-api/user/1/avatar/content')
     expect(missingAvatarContent.response.status).toBe(404)
     expect(missingAvatarContent.body.detail.error_message).toBe('Avatar not found')
+    expect(missingAvatarContent.body.detail.error_code).toBe('NOT_FOUND')
 
     const partCreate = await request('/user-api/file-storage/part/create', {
       method: 'POST',
@@ -283,6 +284,7 @@ describe('http api', () => {
     })
     expect(duplicateFileUpload.response.status).toBe(400)
     expect(duplicateFileUpload.body.detail.error_message).toContain('File already exists at path')
+    expect(duplicateFileUpload.body.detail.error_code).toBe('VALIDATION_ERROR')
 
     const fileInfo = await request('/user-api/file-storage/file/info?storage_part_name=archive&path=docs%2Freadme.txt')
     expect(fileInfo.body.file_info.size_bytes).toBe(10)

@@ -1,6 +1,7 @@
 import type { Request, Response, Router } from 'express'
 import { Router as createRouter } from 'express'
 import multer from 'multer'
+import { badRequest, notFound, unauthorized } from './api-errors.js'
 import { store } from './store.js'
 import type { BaseRecord } from './types.js'
 import type { WsConnectionInfo } from './types.js'
@@ -19,10 +20,6 @@ const parseIncludeDeleted = (value: unknown): boolean => {
 }
 
 const ok = <T>(payload: T) => payload
-
-const notFound = (res: Response, message: string) => res.status(404).json({ detail: { error_message: message } })
-const badRequest = (res: Response, message: string) => res.status(400).json({ detail: { error_message: message } })
-const unauthorized = (res: Response, message: string) => res.status(401).json({ detail: { error_message: message } })
 
 const authTokenFromRequest = (req: Request): string | null => {
   const header = req.header('Authorization') || ''
