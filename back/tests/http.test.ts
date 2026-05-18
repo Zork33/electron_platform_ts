@@ -433,6 +433,15 @@ describe('http api', () => {
     const objectInfo = await request('/dev-api/object-container/storage-info')
     expect(objectInfo.body.summary.total_categories).toBeGreaterThan(0)
 
+    const cleanerInfo = await request('/dev-api/object-container/cleaner-info')
+    expect(cleanerInfo.body.summary.is_running).toBe(false)
+
+    const containerInfo = await request('/dev-api/object-container/container-info')
+    expect(containerInfo.body.cleaner_running).toBe(false)
+
+    const allStatistics = await request('/dev-api/object-container/all-statistics')
+    expect(allStatistics.body.storage.summary.total_objects).toBeGreaterThanOrEqual(0)
+
     const partHealth = await request('/dev-api/file-storage/part/health/check')
     expect(partHealth.body.healthy).toBe(true)
 

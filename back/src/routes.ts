@@ -501,6 +501,18 @@ function createDevApiRouter(wsApi: {
     res.json(store.objectContainer.getStorageInfo())
   })
 
+  router.get('/object-container/cleaner-info', (_req, res) => {
+    res.json(store.objectContainer.getCleanerInfo())
+  })
+
+  router.get('/object-container/container-info', (_req, res) => {
+    res.json(store.objectContainer.getContainerInfo())
+  })
+
+  router.get('/object-container/all-statistics', (_req, res) => {
+    res.json(store.objectContainer.getAllStatistics())
+  })
+
   router.get('/web-socket/pool', (_req, res) => {
     const connections = store.ws.listConnections()
     res.json({

@@ -23,5 +23,20 @@ describe('object container service', () => {
     expect(info.summary.total_objects).toBe(1)
     expect(info.object_list.find((item) => item.category === 'archive')?.object_count).toBe(1)
     expect(info.object_list.find((item) => item.category === 'archive')?.objects[0].id).toBe('1')
+    expect(service.getCleanerInfo()).toEqual({
+      summary: {
+        last_cleanup: null,
+        next_cleanup: null,
+        is_running: false,
+        interval_seconds: null,
+      },
+      cleanup_log: [],
+    })
+    expect(service.getContainerInfo().cleaner_running).toBe(false)
+    expect(service.getAllStatistics()).toEqual({
+      storage: info,
+      cleaner: service.getCleanerInfo(),
+      container: service.getContainerInfo(),
+    })
   })
 })
