@@ -479,6 +479,21 @@ describe('http api', () => {
     })
     expect(fileManagerUpload.body.metadata.filename).toBe('file.txt')
 
+    const fileManagerUploadReplace = await request('/user-api/file-manager/upload', {
+      method: 'POST',
+      body: formData({
+        file: new Blob([Buffer.from('managed file replaced')], { type: 'text/plain' }),
+        storage_part_name: 'private',
+        path: 'managed/file.txt',
+        filename: 'file-renamed.txt',
+        ext: 'txt',
+        with_replace: 'true',
+      }),
+    })
+    expect(fileManagerUploadReplace.body.metadata.id).toBe(fileManagerUpload.body.metadata.id)
+    expect(fileManagerUploadReplace.body.metadata.filename).toBe('file-renamed.txt')
+    expect(fileManagerUploadReplace.body.metadata.size_bytes).toBe(Buffer.from('managed file replaced').length)
+
     const invalidFileManagerUpload = await request('/user-api/file-manager/upload', {
       method: 'POST',
       body: formData({
