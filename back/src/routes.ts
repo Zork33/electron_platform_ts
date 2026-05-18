@@ -33,6 +33,8 @@ const buildManagedDownloadDisposition = (filename: string, ext: string): string 
   return `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`
 }
 
+const isEmailAddress = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+
 const buildPathDownloadFilename = (path: string): string => {
   const segments = path.split('/')
   return segments.length > 0 ? segments[segments.length - 1] || path : path
@@ -96,6 +98,7 @@ function createUserApiRouter(): Router {
   router.post('/auth/login-confirm-code-start', async (req, res) => {
     const authEmail = String(req.body?.auth_email ?? '').trim()
     if (!authEmail) return badRequest(res, 'auth_email is required')
+    if (!isEmailAddress(authEmail)) return validationError(res, 'auth_email is invalid', 'VALIDATION_ERROR')
     const result = await store.authApiService.startLogin(authEmail)
     if (!result.ok) {
       if (result.status === 404) return notFound(res, result.error, 'USER_NOT_FOUND')
@@ -108,6 +111,7 @@ function createUserApiRouter(): Router {
     const authEmail = String(req.body?.auth_email ?? '').trim()
     const firstName = String(req.body?.first_name ?? '').trim()
     if (!authEmail || !firstName) return badRequest(res, 'auth_email and first_name are required')
+    if (!isEmailAddress(authEmail)) return validationError(res, 'auth_email is invalid', 'VALIDATION_ERROR')
     const result = await store.authApiService.startRegistration({
       auth_email: authEmail,
       first_name: firstName,
