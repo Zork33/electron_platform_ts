@@ -167,7 +167,7 @@ export class FileStorageService {
   }
 
   setPart(name: string, isPublic: boolean): FilePart {
-    const part = { name, is_public: isPublic }
+    const part = { code: name, name, is_public: isPublic, description: null }
     this.fileParts.set(name, part)
     this.deps.onChange?.()
     return part
@@ -193,7 +193,7 @@ export class FileStorageService {
   getOrCreatePart(name: string): FilePart {
     const part = this.fileParts.get(name)
     if (part) return part
-    const created = { name, is_public: false }
+    const created = { code: name, name, is_public: false, description: null }
     this.fileParts.set(name, created)
     this.deps.onChange?.()
     return created
@@ -201,9 +201,9 @@ export class FileStorageService {
 
   ensureSystemParts(): void {
     const systemParts: FilePart[] = [
-      { name: 'private', is_public: false },
-      { name: 'public', is_public: true },
-      { name: 'trash', is_public: false },
+      { code: 'private', name: 'private', is_public: false, description: null },
+      { code: 'public', name: 'public', is_public: true, description: null },
+      { code: 'trash', name: 'trash', is_public: false, description: null },
     ]
     for (const part of systemParts) {
       const current = this.fileParts.get(part.name)

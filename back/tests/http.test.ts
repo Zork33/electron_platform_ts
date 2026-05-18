@@ -411,7 +411,7 @@ describe('http api', () => {
       headers: jsonHeaders,
       body: JSON.stringify({ name: 'archive', is_public: false }),
     })
-    expect(partCreate.body.part.name).toBe('archive')
+    expect(partCreate.body.part).toMatchObject({ code: 'archive', name: 'archive', is_public: false, description: null })
 
     const duplicatePartCreate = await request('/user-api/file-storage/part/create', {
       method: 'POST',
@@ -550,7 +550,7 @@ describe('http api', () => {
       headers: jsonHeaders,
       body: JSON.stringify({ is_public: true }),
     })
-    expect(partUpdate.body.part.is_public).toBe(true)
+    expect(partUpdate.body.part).toMatchObject({ code: 'archive', name: 'archive', is_public: true, description: null })
 
     store.fileStorage.fileParts.delete('trash')
     const partSync = await request('/dev-api/file-storage/part/sync', { method: 'POST' })

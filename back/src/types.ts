@@ -74,8 +74,10 @@ export interface LoungeEvent extends BaseRecord {
 }
 
 export interface FilePart {
+  code: string
   name: string
   is_public: boolean
+  description: string | null
 }
 
 export interface StoredFileMetadata extends BaseRecord {

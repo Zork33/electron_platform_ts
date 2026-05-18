@@ -9,8 +9,8 @@ describe('file api service', () => {
     const service = new FileApiService(storage)
 
     expect(service.listParts()).toEqual({ parts: ['private', 'public', 'trash'], count: 3 })
-    expect(service.createPart('archive', false)).toEqual({ name: 'archive', is_public: false })
-    expect(service.getPart('archive')).toEqual({ name: 'archive', is_public: false })
+    expect(service.createPart('archive', false)).toEqual({ code: 'archive', name: 'archive', is_public: false, description: null })
+    expect(service.getPart('archive')).toEqual({ code: 'archive', name: 'archive', is_public: false, description: null })
     expect(service.setPartPublic('archive', true)?.is_public).toBe(true)
 
     const uploaded = service.uploadFile({
