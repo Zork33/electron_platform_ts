@@ -274,6 +274,17 @@ describe('http api', () => {
     })
     expect(fileUpload.body.metadata.path).toBe('docs/readme.txt')
 
+    const missingStoragePartUpload = await request('/user-api/file-storage/file/upload', {
+      method: 'POST',
+      body: formData({
+        file: new Blob([Buffer.from('hello file')], { type: 'text/plain' }),
+        storage_part_name: 'missing',
+        path: 'docs/missing.txt',
+      }),
+    })
+    expect(missingStoragePartUpload.response.status).toBe(404)
+    expect(missingStoragePartUpload.body.detail.error_message).toContain("Storage part 'missing' not found")
+
     const duplicateFileUpload = await request('/user-api/file-storage/file/upload', {
       method: 'POST',
       body: formData({
@@ -296,13 +307,26 @@ describe('http api', () => {
       method: 'POST',
       body: formData({
         file: new Blob([Buffer.from('managed file')], { type: 'text/plain' }),
-        storage_part_name: 'archive',
+        storage_part_name: 'private',
         path: 'managed/file.txt',
         filename: 'file.txt',
         ext: 'txt',
       }),
     })
     expect(fileManagerUpload.body.metadata.filename).toBe('file.txt')
+
+    const invalidFileManagerUpload = await request('/user-api/file-manager/upload', {
+      method: 'POST',
+      body: formData({
+        file: new Blob([Buffer.from('managed file')], { type: 'text/plain' }),
+        storage_part_name: 'archive',
+        path: 'managed/invalid.txt',
+        filename: 'invalid.txt',
+        ext: 'txt',
+      }),
+    })
+    expect(invalidFileManagerUpload.response.status).toBe(400)
+    expect(invalidFileManagerUpload.body.detail.error_message).toContain('Unknown storage part')
 
     const fileManagerList = await request('/user-api/file-manager/list')
     expect(fileManagerList.body.items.length).toBeGreaterThan(0)
@@ -344,7 +368,7 @@ describe('http api', () => {
       method: 'POST',
       body: formData({
         file: new Blob([Buffer.from('hard delete')], { type: 'text/plain' }),
-        storage_part_name: 'archive',
+        storage_part_name: 'private',
         path: 'managed/hard.txt',
         filename: 'hard.txt',
         ext: 'txt',

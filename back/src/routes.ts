@@ -369,6 +369,7 @@ function createUserApiRouter(): Router {
     const storagePartName = String(req.body?.storage_part_name ?? 'private')
     const path = String(req.body?.path ?? '')
     if (!path) return badRequest(res, 'path is required')
+    if (!store.fileApiService.getPart(storagePartName)) return notFound(res, `Storage part '${storagePartName}' not found`)
     try {
       const result = store.fileApiService.uploadFile({ storagePartName, path, file })
       if (!result) return badRequest(res, 'path is required')
@@ -422,10 +423,11 @@ function createUserApiRouter(): Router {
   router.post('/file-manager/upload', upload.single('file'), (req, res) => {
     const file = req.file
     if (!file) return badRequest(res, 'file is required')
-    const storagePartName = String(req.body?.storage_part_name ?? 'private')
+    const storagePartName = String(req.body?.storage_part_name ?? 'private').toLowerCase()
     const path = String(req.body?.path ?? '')
     const filename = String(req.body?.filename ?? file.originalname)
     const ext = String(req.body?.ext ?? (filename.includes('.') ? filename.split('.').pop() ?? '' : ''))
+    if (!['private', 'public'].includes(storagePartName)) return badRequest(res, `Unknown storage part: ${storagePartName}`)
     try {
       const result = store.fileApiService.uploadManagedFile({
         storagePartName,
