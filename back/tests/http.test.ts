@@ -609,7 +609,7 @@ describe('http api', () => {
         ext: 'txt',
       }),
     })
-    expect(invalidFileManagerUpload.response.status).toBe(422)
+    expect(invalidFileManagerUpload.response.status).toBe(400)
     expect(invalidFileManagerUpload.body.detail.error_message).toContain('Unknown storage part')
 
     const fileManagerList = await request('/user-api/file-manager/list')

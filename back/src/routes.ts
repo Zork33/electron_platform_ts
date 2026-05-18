@@ -490,7 +490,7 @@ function createUserApiRouter(): Router {
     if (!filename) return validationError(res, 'filename is required', 'VALIDATION_ERROR')
     if (!ext) return validationError(res, 'ext is required', 'VALIDATION_ERROR')
     if (!['private', 'public'].includes(storagePartName))
-      return validationError(res, `Unknown storage part: ${storagePartName}`, 'VALIDATION_ERROR')
+      return badRequest(res, `Unknown storage part: ${storagePartName}`)
     if (!path) return validationError(res, 'path is required', 'VALIDATION_ERROR')
     try {
       const result = store.fileApiService.uploadManagedFile({
