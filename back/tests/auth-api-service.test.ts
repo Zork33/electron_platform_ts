@@ -91,7 +91,7 @@ describe('auth api service', () => {
     )
 
     const refresh = service.refreshAccessToken([...auth.accessTokens.keys()][0]!)
-    expect(refresh?.session_expires_days).toBe(7)
+    expect(refresh).toEqual(expect.objectContaining({ access_token: expect.any(String), expires_at: expect.any(String) }))
 
     const token = [...auth.accessTokens.keys()][0]!
     expect(service.logout(token)).toBe(true)

@@ -167,7 +167,6 @@ export class AuthApiService {
     return {
       access_token: refreshed.token,
       expires_at: refreshed.expires_at,
-      session_expires_days: this.deps.sessionDays,
     }
   }
 
