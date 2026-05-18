@@ -442,7 +442,10 @@ describe('http api', () => {
       }),
     })
     expect(fileUpload.body.message).toBe('File uploaded successfully')
-    expect(fileUpload.body.metadata.path).toBe('docs/readme.txt')
+    expect(fileUpload.body.file_path).toEqual({
+      storage_part_name: 'archive',
+      path: 'docs/readme.txt',
+    })
     expect(fileUpload.body.size_bytes).toBe(Buffer.from('hello file').length)
     expect(fileUpload.body.etag).toBeTruthy()
 

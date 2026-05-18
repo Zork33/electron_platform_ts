@@ -402,7 +402,7 @@ function createUserApiRouter(): Router {
       res.json({
         success: true,
         message: 'File uploaded successfully',
-        ...result,
+        file_path: result.file_path,
         size_bytes: result.metadata.size_bytes,
         etag: result.metadata.etag,
       })
