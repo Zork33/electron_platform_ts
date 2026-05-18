@@ -476,6 +476,8 @@ describe('http api', () => {
     await new Promise((resolve) => setTimeout(resolve, 50))
     const pool = await request('/dev-api/web-socket/pool')
     expect(pool.body.total_connections).toBe(1)
+    expect(pool.body.ping_interval).toBe(30)
+    expect(pool.body.ping_timeout).toBe(10)
 
     socket.send('not-json')
     socket.send(JSON.stringify({ type: 'pong' }))

@@ -515,8 +515,8 @@ function createDevApiRouter(wsApi: {
     res.json({
       total_users: new Set(connections.map((c: WsConnectionInfo) => c.user_id)).size,
       total_connections: connections.length,
-      ping_interval: 30000,
-      ping_timeout: 60000,
+      ping_interval: 30,
+      ping_timeout: 10,
       connections,
     })
   })

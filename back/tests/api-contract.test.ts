@@ -156,5 +156,7 @@ describe('backend api contract', () => {
     const pool = await request('/dev-api/web-socket/pool')
     expect(pool.response.ok).toBe(true)
     expectObjectKeys(pool.body, ['total_users', 'total_connections', 'ping_interval', 'ping_timeout', 'connections'])
+    expect((pool.body as { ping_interval: number; ping_timeout: number }).ping_interval).toBe(30)
+    expect((pool.body as { ping_interval: number; ping_timeout: number }).ping_timeout).toBe(10)
   })
 })
