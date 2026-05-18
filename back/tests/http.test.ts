@@ -523,10 +523,18 @@ describe('http api', () => {
     const fileInfo = await request('/user-api/file-storage/file/info?storage_part_name=archive&path=docs%2Freadme.txt')
     expect(fileInfo.body.file_info.size_bytes).toBe(10)
 
+    const missingFileInfoPath = await request('/user-api/file-storage/file/info?storage_part_name=archive')
+    expect(missingFileInfoPath.response.status).toBe(422)
+    expect(missingFileInfoPath.body.detail.error_message).toBe('path is required')
+
     const fileDownload = await request('/user-api/file-storage/file/download?storage_part_name=archive&path=docs%2Freadme.txt')
     expect(Buffer.from(await fileDownload.response.arrayBuffer()).toString()).toBe('hello file')
     expect(fileDownload.response.headers.get('content-disposition')).toContain('attachment;')
     expect(fileDownload.response.headers.get('content-disposition')).toBe('attachment; filename=readme.txt')
+
+    const missingFileDownloadPart = await request('/user-api/file-storage/file/download?path=docs%2Freadme.txt')
+    expect(missingFileDownloadPart.response.status).toBe(422)
+    expect(missingFileDownloadPart.body.detail.error_message).toBe('storage_part_name is required')
 
     const fileManagerUpload = await request('/user-api/file-manager/upload', {
       method: 'POST',

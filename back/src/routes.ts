@@ -421,6 +421,8 @@ function createUserApiRouter(): Router {
   router.get('/file-storage/file/download', (req, res) => {
     const storagePartName = String(req.query.storage_part_name ?? '')
     const path = String(req.query.path ?? '')
+    if (!storagePartName) return validationError(res, 'storage_part_name is required', 'VALIDATION_ERROR')
+    if (!path) return validationError(res, 'path is required', 'VALIDATION_ERROR')
     const file = store.fileApiService.downloadFile(storagePartName, path)
     if (!file) return notFound(res, 'File not found')
     const filename = buildPathDownloadFilename(path)
@@ -432,6 +434,8 @@ function createUserApiRouter(): Router {
   router.delete('/file-storage/file/delete', (req, res) => {
     const storagePartName = String(req.query.storage_part_name ?? '')
     const path = String(req.query.path ?? '')
+    if (!storagePartName) return validationError(res, 'storage_part_name is required', 'VALIDATION_ERROR')
+    if (!path) return validationError(res, 'path is required', 'VALIDATION_ERROR')
     const result = store.fileApiService.deleteFile(storagePartName, path)
     if (!result) return notFound(res, 'File not found')
     res.json({
@@ -444,6 +448,8 @@ function createUserApiRouter(): Router {
   router.get('/file-storage/file/info', (req, res) => {
     const storagePartName = String(req.query.storage_part_name ?? '')
     const path = String(req.query.path ?? '')
+    if (!storagePartName) return validationError(res, 'storage_part_name is required', 'VALIDATION_ERROR')
+    if (!path) return validationError(res, 'path is required', 'VALIDATION_ERROR')
     const result = store.fileApiService.getFileInfo(storagePartName, path)
     if (!result) return notFound(res, 'File not found')
     res.json({ success: true, ...result })
@@ -453,6 +459,8 @@ function createUserApiRouter(): Router {
     const storagePartName = String(req.query.storage_part_name ?? '')
     const path = String(req.query.path ?? '')
     const expiresIn = toNumber(req.query.expires_in, 3600)
+    if (!storagePartName) return validationError(res, 'storage_part_name is required', 'VALIDATION_ERROR')
+    if (!path) return validationError(res, 'path is required', 'VALIDATION_ERROR')
     const result = store.fileApiService.getPresignedUrl(storagePartName, path, expiresIn)
     if (!result) return notFound(res, 'File not found')
     res.json({
