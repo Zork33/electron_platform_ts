@@ -787,6 +787,25 @@ describe('http api', () => {
     })
     expect(eventCreate.body.report_gallery).toEqual([])
 
+    const eventCreateTwo = await request('/user-api/event', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ title: 'Alpha event', description: 'demo-2' }),
+    })
+    expect(eventCreateTwo.body.title).toBe('Alpha event')
+
+    const eventList = await request('/user-api/event?limit=1&offset=0&order_by=title&order_direction=asc')
+    expect(eventList.response.ok).toBe(true)
+    expect(eventList.body).toHaveLength(1)
+
+    const eventFilter = await request(
+      `/user-api/event?filters=${encodeURIComponent(
+        JSON.stringify([{ field: 'title', operator: 'ILIKE', value: '%Launch%' }])
+      )}&order_by=title&order_direction=asc`
+    )
+    expect(eventFilter.response.ok).toBe(true)
+    expect(eventFilter.body.some((event: { title: string }) => event.title === 'Launch event')).toBe(true)
+
     const eventUpdate = await request(`/user-api/event/${eventCreate.body.id}`, {
       method: 'PUT',
       headers: jsonHeaders,
